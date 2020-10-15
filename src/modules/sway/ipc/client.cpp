@@ -27,7 +27,7 @@ Ipc::~Ipc() {
 
 void Ipc::setWorker(std::function<void()>&& func) { thread_ = func; }
 
-const std::string Ipc::getSocketPath() const {
+const std::string Ipc::getSocketPath() {
   const char* env = getenv("SWAYSOCK");
   if (env != nullptr) {
     return std::string(env);
@@ -53,6 +53,15 @@ const std::string Ipc::getSocketPath() const {
     str.pop_back();
   }
   return str;
+}
+
+bool Ipc::available() {
+  try {
+    getSocketPath();
+    return true;
+  } catch (...) {
+    return false;
+  }
 }
 
 int Ipc::open(const std::string& socketPath) const {

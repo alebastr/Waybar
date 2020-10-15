@@ -30,12 +30,17 @@ class Ipc {
   void subscribe(const std::string &payload);
   void handleEvent();
   void setWorker(std::function<void()> &&func);
+  /**
+   * Test if an IPC socket is available without establishing connection
+   */
+  static bool available();
 
  protected:
   static inline const std::string ipc_magic_ = "i3-ipc";
   static inline const size_t      ipc_header_size_ = ipc_magic_.size() + 8;
 
-  const std::string   getSocketPath() const;
+  static const std::string getSocketPath();
+
   int                 open(const std::string &) const;
   struct ipc_response send(int fd, uint32_t type, const std::string &payload = "");
   struct ipc_response recv(int fd);
