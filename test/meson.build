@@ -5,7 +5,9 @@ catch2 = dependency('catch2',
 
 if catch2.found()
     test_files = files(
+        '../src/bar_config.cpp',
         'SafeSignal.cpp',
+        'bar_config.cpp',
         'main.cpp',
     )
 

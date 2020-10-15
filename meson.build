@@ -145,6 +145,7 @@ src_files = files(
     'src/modules/temperature.cpp',
     'src/main.cpp',
     'src/bar.cpp',
+    'src/bar_config.cpp',
     'src/client.cpp',
 )
 
