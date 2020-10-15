@@ -132,6 +132,8 @@ if systemd.found()
   )
 endif
 
+include_dirs = include_directories('include')
+
 src_files = files(
     'src/factory.cpp',
     'src/AModule.cpp',
@@ -237,6 +239,7 @@ if get_option('rfkill').enabled()
 endif
 
 subdir('protocol')
+subdir('test')
 
 executable(
     'waybar',
@@ -263,7 +266,7 @@ executable(
         libsndio,
         tz_dep
     ],
-    include_directories: [include_directories('include')],
+    include_directories: include_dirs,
     install: true,
 )
 
