@@ -1,4 +1,4 @@
-#include <memory>
+#include <fstream>
 
 #include <catch2/catch.hpp>
 #include <json/json.h>
@@ -216,4 +216,13 @@ TEST_CASE("Sway barconfig_update with hidden bar", "[bar_config]") {
 
   REQUIRE(config.is_hidden() == true);
   REQUIRE(config.is_vertical() == false);
+}
+
+TEST_CASE("Check parsing of the default config", "[bar_config]") {
+  // path is relative to the `test` directory of the project
+  std::ifstream file("../resources/config");
+  Json::Value   json;
+  REQUIRE(file.is_open());
+  REQUIRE_NOTHROW(file >> json);
+  REQUIRE_NOTHROW(get<bar_config>(json));
 }

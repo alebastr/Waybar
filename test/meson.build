@@ -23,5 +23,6 @@ if catch2.found()
         include_directories: include_dirs,
     )
 
-    test('catch2 test', test_exe)
+    test('catch2 test', test_exe,
+      workdir: meson.current_source_dir())
 endif
