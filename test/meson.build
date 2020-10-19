@@ -5,6 +5,7 @@ catch2 = dependency('catch2',
 
 if catch2.found()
     test_files = files(
+        'SafeSignal.cpp',
         'main.cpp',
     )
 
@@ -13,6 +14,7 @@ if catch2.found()
         dependencies: [
             catch2,
             fmt,
+            gtkmm,
             jsoncpp,
             spdlog
         ],
