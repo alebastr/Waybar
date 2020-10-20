@@ -445,6 +445,33 @@ void waybar::Bar::setVisible(bool value) {
 
 void waybar::Bar::toggle() { setVisible(!visible); }
 
+void waybar::Bar::updateConfig(const bar_config& new_config) {
+  // ignore orientation changes
+  if (current_config_.position != new_config.position &&
+      current_config_.is_vertical() == new_config.is_vertical()) {
+    surface_impl_->setPosition(new_config.position);
+    current_config_.position = new_config.position;
+  }
+  // ignore empty margins; default values from sway IPC should not overwrite config
+  if (new_config.margins.top || new_config.margins.right || new_config.margins.bottom ||
+      new_config.margins.left) {
+    surface_impl_->setMargins(new_config.margins);
+    current_config_.margins = new_config.margins;
+  }
+
+  current_config_.mode = new_config.mode;
+  current_config_.hidden_state = new_config.hidden_state;
+
+  // swaybar: mode hide is always on overlay, even if hidden_state = show
+  // also, swaybar rendered on the overlay layer has no exclusive zone
+  // TODO: Gdk::Window::set_pass_through does not work; check if there's another way
+  // to pass through pointer events
+  surface_impl_->setLayer(current_config_.is_overlay() ? bar_layer::OVERLAY
+                                                       : current_config_.layer);
+  // will commit the surface
+  setVisible(!new_config.is_hidden());
+}
+
 // Converting string to button code rn as to avoid doing it later
 void waybar::Bar::setupAltFormatKeyForModule(const std::string& module_name) {
   if (config.isMember(module_name)) {

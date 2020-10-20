@@ -69,7 +69,9 @@ void BarIpcClient::onIpcEvent(const struct Ipc::ipc_response& res) {
 
 void BarIpcClient::onConfigUpdate(bar_config config) {
   spdlog::info("config update: {}", config);
-  // TODO: pass config to bars
+  for (auto& bar : client_.bars) {
+    bar->updateConfig(config);
+  }
 }
 
 void BarIpcClient::onVisibilityUpdate(bool visible_by_modifier) {

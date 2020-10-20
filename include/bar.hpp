@@ -46,6 +46,8 @@ class Bar {
 
   void setVisible(bool visible);
   void toggle();
+  // handle configuration changes
+  void updateConfig(const bar_config &new_config);
   void handleSignal(int);
 
   struct waybar_output *output;
