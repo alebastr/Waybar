@@ -39,9 +39,9 @@ TEST_CASE_METHOD(GlibTestsFixture, "SafeSignal basic functionality", "[signal][t
   });
 
   run([&]() {
-    // check that events from the same thread are delivered
+    // check that events from the same thread are delivered and processed synchronously
     test_signal.emit(1, "test");
-    // can't assert here, dispatcher will process event on the next loop iteration
+    REQUIRE(count == 1);
 
     // start another thread and generate events
     producer = std::thread([&]() {
