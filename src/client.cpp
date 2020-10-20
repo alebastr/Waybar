@@ -272,6 +272,16 @@ int waybar::Client::main(int argc, char *argv[]) {
   auto [config_file, css_file] = getConfigs(config, style);
   setupConfig(config_file);
   setupCss(css_file);
+#ifdef HAVE_SWAY
+  // FIXME: temporary hack
+  // Need to do something better about the configuration and conditions:
+  //  * add config flag to disable swaybar ipc client
+  //  * read initial configuration from sway
+  //  * merge initial configuration from sway with json config before creating bars
+  if (!bar_id.empty() && modules::sway::Ipc::available()) {
+    bar_ipc_client_.emplace(*this, bar_id, true);
+  }
+#endif
   bindInterfaces();
   gtk_app->hold();
   gtk_app->run();
