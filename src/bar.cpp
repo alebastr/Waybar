@@ -62,18 +62,16 @@ struct GLSSurfaceImpl : public BarSurface, public sigc::trackable {
     gtk_layer_set_layer(window_.gobj(), layer);
   }
 
-  void setPosition(const std::string_view& position) override {
+  void setPosition(bar_position position) override {
     auto unanchored = GTK_LAYER_SHELL_EDGE_BOTTOM;
-    vertical_ = false;
-    if (position == "bottom") {
+    if (position == bar_position::BOTTOM) {
       unanchored = GTK_LAYER_SHELL_EDGE_TOP;
-    } else if (position == "left") {
+    } else if (position == bar_position::LEFT) {
       unanchored = GTK_LAYER_SHELL_EDGE_RIGHT;
-      vertical_ = true;
-    } else if (position == "right") {
-      vertical_ = true;
+    } else if (position == bar_position::RIGHT) {
       unanchored = GTK_LAYER_SHELL_EDGE_LEFT;
     }
+    vertical_ = (position == bar_position::LEFT || position == bar_position::RIGHT);
     for (auto edge : {GTK_LAYER_SHELL_EDGE_LEFT,
                       GTK_LAYER_SHELL_EDGE_RIGHT,
                       GTK_LAYER_SHELL_EDGE_TOP,
@@ -182,14 +180,20 @@ struct RawSurfaceImpl : public BarSurface, public sigc::trackable {
     }
   }
 
-  void setPosition(const std::string_view& position) override {
-    anchor_ = HORIZONTAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
-    if (position == "bottom") {
-      anchor_ = HORIZONTAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
-    } else if (position == "left") {
-      anchor_ = VERTICAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT;
-    } else if (position == "right") {
-      anchor_ = VERTICAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+  void setPosition(bar_position position) override {
+    switch (position) {
+      case bar_position::TOP:
+        anchor_ = HORIZONTAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
+        break;
+      case bar_position::RIGHT:
+        anchor_ = VERTICAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+        break;
+      case bar_position::BOTTOM:
+        anchor_ = HORIZONTAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+        break;
+      case bar_position::LEFT:
+        anchor_ = VERTICAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT;
+        break;
     }
 
     // updating already mapped window
@@ -359,7 +363,6 @@ waybar::Bar::Bar(struct waybar_output* w_output, const Json::Value& w_config)
     : output(w_output),
       config(w_config),
       window{Gtk::WindowType::WINDOW_TOPLEVEL},
-      layer_{bar_layer::BOTTOM},
       left_(Gtk::ORIENTATION_HORIZONTAL, 0),
       center_(Gtk::ORIENTATION_HORIZONTAL, 0),
       right_(Gtk::ORIENTATION_HORIZONTAL, 0),
@@ -374,70 +377,14 @@ waybar::Bar::Bar(struct waybar_output* w_output, const Json::Value& w_config)
   center_.get_style_context()->add_class("modules-center");
   right_.get_style_context()->add_class("modules-right");
 
-  if (config["layer"] == "top") {
-    layer_ = bar_layer::TOP;
-  } else if (config["layer"] == "overlay") {
-    layer_ = bar_layer::OVERLAY;
-  }
+  from_json(config, current_config_);
 
-  auto position = config["position"].asString();
-
-  if (position == "right" || position == "left") {
+  if (current_config_.is_vertical()) {
     left_ = Gtk::Box(Gtk::ORIENTATION_VERTICAL, 0);
     center_ = Gtk::Box(Gtk::ORIENTATION_VERTICAL, 0);
     right_ = Gtk::Box(Gtk::ORIENTATION_VERTICAL, 0);
     box_ = Gtk::Box(Gtk::ORIENTATION_VERTICAL, 0);
     vertical = true;
-  }
-
-  uint32_t height = config["height"].isUInt() ? config["height"].asUInt() : 0;
-  uint32_t width = config["width"].isUInt() ? config["width"].asUInt() : 0;
-
-  struct bar_margins margins_;
-
-  if (config["margin-top"].isInt() || config["margin-right"].isInt() ||
-      config["margin-bottom"].isInt() || config["margin-left"].isInt()) {
-    margins_ = {
-        config["margin-top"].isInt() ? config["margin-top"].asInt() : 0,
-        config["margin-right"].isInt() ? config["margin-right"].asInt() : 0,
-        config["margin-bottom"].isInt() ? config["margin-bottom"].asInt() : 0,
-        config["margin-left"].isInt() ? config["margin-left"].asInt() : 0,
-    };
-  } else if (config["margin"].isString()) {
-    std::istringstream       iss(config["margin"].asString());
-    std::vector<std::string> margins{std::istream_iterator<std::string>(iss), {}};
-    try {
-      if (margins.size() == 1) {
-        auto gaps = std::stoi(margins[0], nullptr, 10);
-        margins_ = {.top = gaps, .right = gaps, .bottom = gaps, .left = gaps};
-      }
-      if (margins.size() == 2) {
-        auto vertical_margins = std::stoi(margins[0], nullptr, 10);
-        auto horizontal_margins = std::stoi(margins[1], nullptr, 10);
-        margins_ = {.top = vertical_margins,
-                    .right = horizontal_margins,
-                    .bottom = vertical_margins,
-                    .left = horizontal_margins};
-      }
-      if (margins.size() == 3) {
-        auto horizontal_margins = std::stoi(margins[1], nullptr, 10);
-        margins_ = {.top = std::stoi(margins[0], nullptr, 10),
-                    .right = horizontal_margins,
-                    .bottom = std::stoi(margins[2], nullptr, 10),
-                    .left = horizontal_margins};
-      }
-      if (margins.size() == 4) {
-        margins_ = {.top = std::stoi(margins[0], nullptr, 10),
-                    .right = std::stoi(margins[1], nullptr, 10),
-                    .bottom = std::stoi(margins[2], nullptr, 10),
-                    .left = std::stoi(margins[3], nullptr, 10)};
-      }
-    } catch (...) {
-      spdlog::warn("Invalid margins: {}", config["margin"].asString());
-    }
-  } else if (config["margin"].isInt()) {
-    auto gaps = config["margin"].asInt();
-    margins_ = {.top = gaps, .right = gaps, .bottom = gaps, .left = gaps};
   }
 
 #ifdef HAVE_GTK_LAYER_SHELL
@@ -450,11 +397,11 @@ waybar::Bar::Bar(struct waybar_output* w_output, const Json::Value& w_config)
     surface_impl_ = std::make_unique<RawSurfaceImpl>(window, *output);
   }
 
-  surface_impl_->setLayer(layer_);
+  surface_impl_->setLayer(current_config_.layer);
   surface_impl_->setExclusiveZone(true);
-  surface_impl_->setMargins(margins_);
-  surface_impl_->setPosition(position);
-  surface_impl_->setSize(width, height);
+  surface_impl_->setMargins(current_config_.margins);
+  surface_impl_->setPosition(current_config_.position);
+  surface_impl_->setSize(current_config_.width, current_config_.height);
 
   window.signal_map_event().connect_notify(sigc::mem_fun(*this, &Bar::onMap));
 
@@ -489,9 +436,10 @@ void waybar::Bar::setVisible(bool value) {
   } else {
     window.get_style_context()->remove_class("hidden");
     window.set_opacity(1);
-    surface_impl_->setLayer(layer_);
+    surface_impl_->setLayer(current_config_.is_overlay() ? bar_layer::OVERLAY
+                                                         : current_config_.layer);
   }
-  surface_impl_->setExclusiveZone(visible);
+  surface_impl_->setExclusiveZone(visible && !current_config_.is_overlay());
   surface_impl_->commit();
 }
 

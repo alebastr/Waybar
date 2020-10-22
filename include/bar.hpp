@@ -9,6 +9,7 @@
 #include <json/json.h>
 
 #include "AModule.hpp"
+#include "bar_config.hpp"
 #include "xdg-output-unstable-v1-client-protocol.h"
 
 namespace waybar {
@@ -22,19 +23,6 @@ struct waybar_output {
       nullptr, &zxdg_output_v1_destroy};
 };
 
-enum class bar_layer : uint8_t {
-  BOTTOM,
-  TOP,
-  OVERLAY,
-};
-
-struct bar_margins {
-  int top = 0;
-  int right = 0;
-  int bottom = 0;
-  int left = 0;
-};
-
 class BarSurface {
  protected:
   BarSurface() = default;
@@ -43,7 +31,7 @@ class BarSurface {
   virtual void setExclusiveZone(bool enable) = 0;
   virtual void setLayer(bar_layer layer) = 0;
   virtual void setMargins(const struct bar_margins &margins) = 0;
-  virtual void setPosition(const std::string_view &position) = 0;
+  virtual void setPosition(bar_position position) = 0;
   virtual void setSize(uint32_t width, uint32_t height) = 0;
   virtual void commit(){};
 
@@ -75,7 +63,7 @@ class Bar {
   void setupAltFormatKeyForModuleList(const char *module_list_name);
 
   std::unique_ptr<BarSurface>                   surface_impl_;
-  bar_layer                                     layer_;
+  struct bar_config                             current_config_;
   Gtk::Box                                      left_;
   Gtk::Box                                      center_;
   Gtk::Box                                      right_;
