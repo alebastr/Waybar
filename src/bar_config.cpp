@@ -1,13 +1,15 @@
-#include <stdexcept>
+#include "bar_config.hpp"
+
 #include <spdlog/spdlog.h>
 
-#include "bar_config.hpp"
+#include <stdexcept>
 
 namespace {
 using namespace waybar;
 const std::map<std::string_view, bar_layer> layer_str = {
     {"bottom", bar_layer::BOTTOM},
     {"top", bar_layer::TOP},
+    {"overlay", bar_layer::OVERLAY},
 };
 
 const std::map<std::string_view, bar_mode> mode_str = {
@@ -151,6 +153,12 @@ void from_json(const Json::Value &src, bar_margins &dst) {
     dst.right = src["right"].isInt() ? src["right"].asInt() : 0;
     dst.bottom = src["bottom"].isInt() ? src["bottom"].asInt() : 0;
     dst.left = src["left"].isInt() ? src["left"].asInt() : 0;
+  } else if (src.isInt()) {
+    int value = src.asInt();
+    dst.top = value;
+    dst.right = value;
+    dst.bottom = value;
+    dst.left = value;
   } else if (src.isString()) {
     from_str(src.asString(), dst);
   }

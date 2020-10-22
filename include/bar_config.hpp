@@ -1,16 +1,16 @@
 #pragma once
 
+#include <fmt/format.h>
+#include <json/value.h>
+
 #include <cstdint>
 #include <map>
 #include <optional>
 #include <string_view>
 
-#include <fmt/format.h>
-#include <json/value.h>
-
 namespace waybar {
 
-enum class bar_layer : uint8_t { NONE, BOTTOM, TOP };
+enum class bar_layer : uint8_t { NONE, BOTTOM, TOP, OVERLAY };
 
 enum class bar_mode : uint8_t {
   DOCK,
@@ -50,6 +50,10 @@ struct bar_config {
   bool is_vertical() const {
     return (position == bar_position::LEFT || position == bar_position::RIGHT);
   }
+  /**
+   * The bar is configured to be displayed over the applications without creating exclusive zone.
+   */
+  bool is_overlay() const { return (mode == bar_mode::OVERLAY || mode == bar_mode::HIDE); }
   /**
    * The bar is hidden according to the sway configuration.
    * Only hidden bars could receive `visible_by_modifier` events.
