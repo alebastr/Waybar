@@ -64,7 +64,6 @@ class Item : public sigc::trackable {
                 const Glib::VariantContainerBase& arguments);
 
   void                      updateImage();
-  Glib::RefPtr<Gdk::Pixbuf> extractPixBuf(GVariant* variant);
   Glib::RefPtr<Gdk::Pixbuf> getIconByName(const std::string& name, int size);
   static void               onMenuDestroyed(Item* self, GObject* old_menu_pointer);
   void                      makeMenu();

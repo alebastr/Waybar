@@ -33,6 +33,60 @@ struct fmt::formatter<Glib::VariantBase> : formatter<std::string> {
   }
 };
 
+static void pixbuf_data_deleter(const guint8* data) { g_free((void*)data); }
+
+Glib::RefPtr<Gdk::Pixbuf> extractPixBuf(GVariant* variant) {
+  GVariantIter* it;
+  g_variant_get(variant, "a(iiay)", &it);
+  if (it == nullptr) {
+    return Glib::RefPtr<Gdk::Pixbuf>{};
+  }
+  GVariant* val;
+  gint      lwidth = 0;
+  gint      lheight = 0;
+  gint      width;
+  gint      height;
+  guchar*   array = nullptr;
+  while (g_variant_iter_loop(it, "(ii@ay)", &width, &height, &val)) {
+    if (width > 0 && height > 0 && val != nullptr && width * height > lwidth * lheight) {
+      auto size = g_variant_get_size(val);
+      /* Sanity check */
+      if (size == 4U * width * height) {
+        /* Find the largest image */
+        gconstpointer data = g_variant_get_data(val);
+        if (data != nullptr) {
+          if (array != nullptr) {
+            g_free(array);
+          }
+          array = static_cast<guchar*>(g_memdup(data, size));
+          lwidth = width;
+          lheight = height;
+        }
+      }
+    }
+  }
+  g_variant_iter_free(it);
+  if (array != nullptr) {
+    /* argb to rgba */
+    for (uint32_t i = 0; i < 4U * lwidth * lheight; i += 4) {
+      guchar alpha = array[i];
+      array[i] = array[i + 1];
+      array[i + 1] = array[i + 2];
+      array[i + 2] = array[i + 3];
+      array[i + 3] = alpha;
+    }
+    return Gdk::Pixbuf::create_from_data(array,
+                                         Gdk::Colorspace::COLORSPACE_RGB,
+                                         true,
+                                         8,
+                                         lwidth,
+                                         lheight,
+                                         4 * lwidth,
+                                         &pixbuf_data_deleter);
+  }
+  return Glib::RefPtr<Gdk::Pixbuf>{};
+}
+
 namespace waybar::modules::SNI {
 
 static const Glib::ustring SNI_INTERFACE_NAME = sn_item_interface_info()->name;
@@ -126,7 +180,7 @@ void Item::setProperty(const Glib::ustring& name, Glib::VariantBase& value) {
     } else if (name == "IconName") {
       icon_name = get_variant<std::string>(value);
     } else if (name == "IconPixmap") {
-      icon_pixmap = this->extractPixBuf(value.gobj());
+      icon_pixmap = extractPixBuf(value.gobj());
     } else if (name == "OverlayIconName") {
       overlay_icon_name = get_variant<std::string>(value);
     } else if (name == "OverlayIconPixmap") {
@@ -227,60 +281,6 @@ void Item::onSignal(const Glib::ustring& sender_name, const Glib::ustring& signa
     }
     update_pending_.insert(changed->second.begin(), changed->second.end());
   }
-}
-
-static void pixbuf_data_deleter(const guint8* data) { g_free((void*)data); }
-
-Glib::RefPtr<Gdk::Pixbuf> Item::extractPixBuf(GVariant* variant) {
-  GVariantIter* it;
-  g_variant_get(variant, "a(iiay)", &it);
-  if (it == nullptr) {
-    return Glib::RefPtr<Gdk::Pixbuf>{};
-  }
-  GVariant* val;
-  gint      lwidth = 0;
-  gint      lheight = 0;
-  gint      width;
-  gint      height;
-  guchar*   array = nullptr;
-  while (g_variant_iter_loop(it, "(ii@ay)", &width, &height, &val)) {
-    if (width > 0 && height > 0 && val != nullptr && width * height > lwidth * lheight) {
-      auto size = g_variant_get_size(val);
-      /* Sanity check */
-      if (size == 4U * width * height) {
-        /* Find the largest image */
-        gconstpointer data = g_variant_get_data(val);
-        if (data != nullptr) {
-          if (array != nullptr) {
-            g_free(array);
-          }
-          array = static_cast<guchar*>(g_memdup(data, size));
-          lwidth = width;
-          lheight = height;
-        }
-      }
-    }
-  }
-  g_variant_iter_free(it);
-  if (array != nullptr) {
-    /* argb to rgba */
-    for (uint32_t i = 0; i < 4U * lwidth * lheight; i += 4) {
-      guchar alpha = array[i];
-      array[i] = array[i + 1];
-      array[i + 1] = array[i + 2];
-      array[i + 2] = array[i + 3];
-      array[i + 3] = alpha;
-    }
-    return Gdk::Pixbuf::create_from_data(array,
-                                         Gdk::Colorspace::COLORSPACE_RGB,
-                                         true,
-                                         8,
-                                         lwidth,
-                                         lheight,
-                                         4 * lwidth,
-                                         &pixbuf_data_deleter);
-  }
-  return Glib::RefPtr<Gdk::Pixbuf>{};
 }
 
 void Item::updateImage() {
