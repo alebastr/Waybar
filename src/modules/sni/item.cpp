@@ -101,9 +101,13 @@ Item::Item(const std::string& bn, const std::string& op, const Json::Value& conf
   if (config["icon-size"].isUInt()) {
     icon_size = config["icon-size"].asUInt();
   }
+  if (config["smooth-scrolling-threshold"].isNumeric()) {
+    scroll_threshold_ = config["smooth-scrolling-threshold"].asDouble();
+  }
   event_box.add(image);
-  event_box.add_events(Gdk::BUTTON_PRESS_MASK);
+  event_box.add_events(Gdk::BUTTON_PRESS_MASK | Gdk::SCROLL_MASK | Gdk::SMOOTH_SCROLL_MASK);
   event_box.signal_button_press_event().connect(sigc::mem_fun(*this, &Item::handleClick));
+  event_box.signal_scroll_event().connect(sigc::mem_fun(*this, &Item::handleScroll));
   event_box.signal_query_tooltip().connect(sigc::mem_fun(*this, &Item::handleQueryTooltip));
   event_box.set_has_tooltip();
 
@@ -388,6 +392,54 @@ bool Item::handleClick(GdkEventButton* const& ev) {
     return true;
   }
   return false;
+}
+
+bool Item::handleScroll(GdkEventScroll* const& ev) {
+  int dx = 0, dy = 0;
+  switch (ev->direction) {
+    case GDK_SCROLL_UP:
+      dy = -1;
+      break;
+    case GDK_SCROLL_DOWN:
+      dy = 1;
+      break;
+    case GDK_SCROLL_LEFT:
+      dx = -1;
+      break;
+    case GDK_SCROLL_RIGHT:
+      dx = 1;
+      break;
+    case GDK_SCROLL_SMOOTH:
+      distance_scrolled_x_ += ev->delta_x;
+      distance_scrolled_y_ += ev->delta_y;
+      // check against the configured threshold and ensure that the absolute value >= 1
+      if (distance_scrolled_x_ > scroll_threshold_) {
+        dx = (int)lround(std::max(distance_scrolled_x_, 1.0));
+        distance_scrolled_x_ = 0;
+      } else if (distance_scrolled_x_ < -scroll_threshold_) {
+        dx = (int)lround(std::min(distance_scrolled_x_, -1.0));
+        distance_scrolled_x_ = 0;
+      }
+      if (distance_scrolled_y_ > scroll_threshold_) {
+        dy = (int)lround(std::max(distance_scrolled_y_, 1.0));
+        distance_scrolled_y_ = 0;
+      } else if (distance_scrolled_y_ < -scroll_threshold_) {
+        dy = (int)lround(std::min(distance_scrolled_y_, -1.0));
+        distance_scrolled_y_ = 0;
+      }
+      break;
+  }
+  if (dx != 0) {
+    auto parameters = Glib::VariantContainerBase::create_tuple(
+        {Glib::Variant<int>::create(dx), Glib::Variant<Glib::ustring>::create("horizontal")});
+    proxy_->call("Scroll", parameters);
+  }
+  if (dy != 0) {
+    auto parameters = Glib::VariantContainerBase::create_tuple(
+        {Glib::Variant<int>::create(dy), Glib::Variant<Glib::ustring>::create("vertical")});
+    proxy_->call("Scroll", parameters);
+  }
+  return true;
 }
 
 bool Item::handleQueryTooltip(int, int, bool, const Glib::RefPtr<Gtk::Tooltip>& widget) {

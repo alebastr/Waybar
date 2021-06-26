@@ -69,7 +69,13 @@ class Item : public sigc::trackable {
   static void               onMenuDestroyed(Item* self, GObject* old_menu_pointer);
   void                      makeMenu();
   bool                      handleClick(GdkEventButton* const& /*ev*/);
+  bool                      handleScroll(GdkEventScroll* const&);
   bool handleQueryTooltip(int, int, bool, const Glib::RefPtr<Gtk::Tooltip>& widget);
+
+  // smooth scrolling threshold
+  gdouble scroll_threshold_ = 0;
+  gdouble distance_scrolled_x_ = 0;
+  gdouble distance_scrolled_y_ = 0;
 
   Glib::RefPtr<Gio::DBus::Proxy> proxy_;
   Glib::RefPtr<Gio::Cancellable> cancellable_;
