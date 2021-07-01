@@ -104,6 +104,8 @@ Item::Item(const std::string& bn, const std::string& op, const Json::Value& conf
   event_box.add(image);
   event_box.add_events(Gdk::BUTTON_PRESS_MASK);
   event_box.signal_button_press_event().connect(sigc::mem_fun(*this, &Item::handleClick));
+  event_box.signal_query_tooltip().connect(sigc::mem_fun(*this, &Item::handleQueryTooltip));
+  event_box.set_has_tooltip();
 
   cancellable_ = Gio::Cancellable::create();
 
@@ -159,6 +161,8 @@ ToolTip get_variant<ToolTip>(const Glib::VariantBase& value) {
   if (!description.empty()) {
     result.text = fmt::format("<b>{}</b>\n{}", result.text, description);
   }
+  auto pixmap = container.get_child(1);
+  result.icon_pixmap = extractPixBuf(pixmap.gobj());
   return result;
 }
 
@@ -172,9 +176,6 @@ void Item::setProperty(const Glib::ustring& name, Glib::VariantBase& value) {
       id = get_variant<std::string>(value);
     } else if (name == "Title") {
       title = get_variant<std::string>(value);
-      if (tooltip.text.empty()) {
-        event_box.set_tooltip_markup(title);
-      }
     } else if (name == "Status") {
       status = get_variant<std::string>(value);
     } else if (name == "IconName") {
@@ -193,9 +194,6 @@ void Item::setProperty(const Glib::ustring& name, Glib::VariantBase& value) {
       attention_movie_name = get_variant<std::string>(value);
     } else if (name == "ToolTip") {
       tooltip = get_variant<ToolTip>(value);
-      if (!tooltip.text.empty()) {
-        event_box.set_tooltip_markup(tooltip.text);
-      }
     } else if (name == "IconThemePath") {
       icon_theme_path = get_variant<std::string>(value);
       if (!icon_theme_path.empty()) {
@@ -390,6 +388,26 @@ bool Item::handleClick(GdkEventButton* const& ev) {
     return true;
   }
   return false;
+}
+
+bool Item::handleQueryTooltip(int, int, bool, const Glib::RefPtr<Gtk::Tooltip>& widget) {
+  if (tooltip.text.empty()) {
+    widget->set_markup(title);
+    return !title.empty();
+  }
+  widget->set_markup(tooltip.text);
+
+  Gtk::IconSize size = Gtk::ICON_SIZE_LARGE_TOOLBAR;  // 24
+  if (!tooltip.icon_name.empty()) {
+    widget->set_icon_from_icon_name(tooltip.icon_name, size);
+  } else if (tooltip.icon_pixmap) {
+    int w, h;
+    Gtk::IconSize::lookup(size, w, h);
+    w = h * tooltip.icon_pixmap->get_width() / tooltip.icon_pixmap->get_height();
+    auto pixmap = tooltip.icon_pixmap->scale_simple(w, h, Gdk::InterpType::INTERP_BILINEAR);
+    widget->set_icon(pixmap);
+  }
+  return true;
 }
 
 }  // namespace waybar::modules::SNI

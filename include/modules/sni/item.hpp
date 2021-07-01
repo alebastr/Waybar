@@ -16,8 +16,9 @@
 namespace waybar::modules::SNI {
 
 struct ToolTip {
-  Glib::ustring icon_name;
-  Glib::ustring text;
+  Glib::ustring             icon_name;
+  Glib::RefPtr<Gdk::Pixbuf> icon_pixmap;
+  Glib::ustring             text;
 };
 
 class Item : public sigc::trackable {
@@ -68,6 +69,7 @@ class Item : public sigc::trackable {
   static void               onMenuDestroyed(Item* self, GObject* old_menu_pointer);
   void                      makeMenu();
   bool                      handleClick(GdkEventButton* const& /*ev*/);
+  bool handleQueryTooltip(int, int, bool, const Glib::RefPtr<Gtk::Tooltip>& widget);
 
   Glib::RefPtr<Gio::DBus::Proxy> proxy_;
   Glib::RefPtr<Gio::Cancellable> cancellable_;
