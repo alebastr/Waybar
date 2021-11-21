@@ -32,6 +32,8 @@ enum class bar_layer : uint8_t {
   OVERLAY,
 };
 
+void from_json(const Json::Value& j, bar_layer& l);
+
 struct bar_margins {
   int top = 0;
   int right = 0;
@@ -45,6 +47,8 @@ struct bar_mode {
   bool      passthrough;
   bool      visible;
 };
+
+void from_json(const Json::Value& j, bar_mode& m);
 
 #ifdef HAVE_SWAY
 namespace modules::sway {

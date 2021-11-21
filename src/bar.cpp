@@ -9,6 +9,7 @@
 #include "bar.hpp"
 #include "client.hpp"
 #include "factory.hpp"
+#include "util/json_get.hpp"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #ifdef HAVE_SWAY
@@ -76,31 +77,19 @@ void from_json(const Json::Value& j, bar_layer& l) {
 
 /* Deserializer for struct bar_mode */
 void from_json(const Json::Value& j, bar_mode& m) {
+  using ::waybar::util::json_get_to;
   if (j.isObject()) {
-    if (auto v = j["layer"]; v.isString()) {
-      from_json(v, m.layer);
+    if (j.isMember("layer")) {
+      json_get_to(j["layer"], m.layer);
     }
-    if (auto v = j["exclusive"]; v.isBool()) {
-      m.exclusive = v.asBool();
+    if (j.isMember("exclusive")) {
+      json_get_to(j["exclusive"], m.exclusive);
     }
-    if (auto v = j["passthrough"]; v.isBool()) {
-      m.passthrough = v.asBool();
+    if (j.isMember("passthrough")) {
+      json_get_to(j["passthrough"], m.passthrough);
     }
-    if (auto v = j["visible"]; v.isBool()) {
-      m.visible = v.asBool();
-    }
-  }
-}
-
-/* Deserializer for JSON Object -> map<string compatible type, Value>
- * Assumes that all the values in the object are deserializable to the same type.
- */
-template <typename Key, typename Value,
-          typename = std::enable_if_t<std::is_convertible<std::string_view, Key>::value>>
-void from_json(const Json::Value& j, std::map<Key, Value>& m) {
-  if (j.isObject()) {
-    for (auto it = j.begin(); it != j.end(); ++it) {
-      from_json(*it, m[it.key().asString()]);
+    if (j.isMember("visible")) {
+      json_get_to(j["visible"], m.visible);
     }
   }
 }
@@ -571,11 +560,11 @@ waybar::Bar::Bar(struct waybar_output* w_output, const Json::Value& w_config)
 
   /* Read custom modes if available */
   if (auto modes = config.get("modes", {}); modes.isObject()) {
-    from_json(modes, configured_modes);
+    util::json_get_to(modes, configured_modes);
   }
 
   /* Update "default" mode with the global bar options */
-  from_json(config, configured_modes[MODE_DEFAULT]);
+  util::json_get_to(config, configured_modes[MODE_DEFAULT]);
 
   if (auto mode = config.get("mode", {}); mode.isString()) {
     setMode(config["mode"].asString());
