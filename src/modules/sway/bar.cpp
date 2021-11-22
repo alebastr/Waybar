@@ -7,6 +7,7 @@
 
 #include "bar.hpp"
 #include "modules/sway/ipc/ipc.hpp"
+#include "util/json_get.hpp"
 
 namespace waybar::modules::sway {
 
@@ -34,18 +35,13 @@ BarIpcClient::BarIpcClient(waybar::Bar& bar) : bar_{bar} {
   });
 }
 
-struct swaybar_config parseConfig(const Json::Value& payload) {
-  swaybar_config conf;
-  if (auto id = payload["id"]; id.isString()) {
-    conf.id = id.asString();
+void from_json(const Json::Value& j, struct swaybar_config& conf) {
+  using ::waybar::util::json_get_to;
+  if (j.isMember("id")) {
+    json_get_to(j["id"], conf.id);
   }
-  if (auto mode = payload["mode"]; mode.isString()) {
-    conf.mode = mode.asString();
-  }
-  if (auto hs = payload["hidden_state"]; hs.isString()) {
-    conf.hidden_state = hs.asString();
-  }
-  return conf;
+  json_get_to(j["mode"], conf.mode);
+  json_get_to(j["hidden_state"], conf.hidden_state);
 }
 
 void BarIpcClient::onInitialConfig(const struct Ipc::ipc_response& res) {
@@ -54,7 +50,7 @@ void BarIpcClient::onInitialConfig(const struct Ipc::ipc_response& res) {
     auto err = payload.get("error", "Unknown error");
     throw std::runtime_error(err.asString());
   }
-  auto config = parseConfig(payload);
+  auto config = util::json_get<swaybar_config>(payload);
   onConfigUpdate(config);
 }
 
@@ -70,7 +66,7 @@ void BarIpcClient::onIpcEvent(const struct Ipc::ipc_response& res) {
       signal_visible_(payload["visible_by_modifier"].asBool());
     } else {
       // configuration update
-      auto config = parseConfig(payload);
+      auto config = util::json_get<swaybar_config>(payload);
       signal_config_(std::move(config));
     }
   } catch (const std::exception& e) {
