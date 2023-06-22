@@ -3,13 +3,16 @@
 #endif
 
 #include <spdlog/spdlog.h>
+#include <wayland-util.h>
 
+#include <optional>
 #include <type_traits>
 
 #include "bar.hpp"
 #include "client.hpp"
 #include "factory.hpp"
 #include "group.hpp"
+#include "viewporter-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #ifdef HAVE_SWAY
@@ -81,6 +84,9 @@ void from_json(const Json::Value& j, bar_mode& m) {
     if (auto v = j["layer"]; v.isString()) {
       from_json(v, m.layer);
     }
+    if (auto v = j["hotspot"]; v.isInt()) {
+      m.hotspot = v.asInt();
+    }
     if (auto v = j["exclusive"]; v.isBool()) {
       m.exclusive = v.asBool();
     }
@@ -106,10 +112,91 @@ void from_json(const Json::Value& j, std::map<Key, Value>& m) {
   }
 }
 
+template <auto fn>
+using deleter_fn = std::integral_constant<decltype(fn), fn>;
+using viewport_ptr = std::unique_ptr<struct wp_viewport, deleter_fn<wp_viewport_destroy>>;
+
+struct SurfaceCommon : public BarSurface, public sigc::trackable {
+  SurfaceCommon(Gtk::Window& window, struct waybar_output& output)
+      : window_{window}, output_name_{output.name} {}
+
+  void setHotspot(int hotspot) override {
+    hotspot_ = hotspot;
+
+    if (hotspot > 0) {
+      cairo_rectangle_int_t rect{
+          .x = 0,
+          .y = 0,
+          .width = vertical_ ? hotspot : (int)width_,
+          .height = vertical_ ? (int)height_ : hotspot,
+      };
+
+      setCropRectangle(rect);
+      // Shrink the input region to match the cropped surface
+      setInputRegion(rect);
+    } else {
+      setCropRectangle(std::nullopt);
+      // Update the input region according to the passthrough value
+      setPassThrough(passthrough_);
+    }
+  }
+
+  void setPassThrough(bool enable) override {
+    passthrough_ = enable;
+    if (hotspot_ > 0) {
+      return;
+    }
+    if (enable) {
+      setInputRegion(cairo_rectangle_int_t{0, 0, 0, 0});
+    } else {
+      setInputRegion(std::nullopt);
+    }
+  }
+
+ protected:
+  Gtk::Window& window_;
+  std::string output_name_;
+  viewport_ptr viewport_;
+
+  uint32_t width_ = 0;
+  uint32_t height_ = 0;
+  int hotspot_ = -1;
+  bool passthrough_ = false;
+  bool vertical_ = false;
+
+  void onMap(GdkEventAny*) {
+    auto gdk_window = window_.get_window();
+    if (auto viewporter = Client::inst()->viewporter; viewporter != nullptr) {
+      auto surface = gdk_wayland_window_get_wl_surface(gdk_window->gobj());
+      viewport_.reset(wp_viewporter_get_viewport(viewporter, surface));
+    }
+  }
+
+  void setCropRectangle(std::optional<cairo_rectangle_int_t> crop) {
+    static const cairo_rectangle_int_t UNSET = {-1, -1, -1, -1};
+    if (viewport_) {
+      auto rect = crop.value_or(UNSET);
+      wp_viewport_set_source(viewport_.get(), wl_fixed_from_int(rect.x), wl_fixed_from_int(rect.y),
+                             wl_fixed_from_int(rect.width), wl_fixed_from_int(rect.height));
+    }
+  }
+
+  void setInputRegion(std::optional<cairo_rectangle_int_t> input) {
+    auto gdk_window = window_.get_window();
+    if (gdk_window) {
+      Cairo::RefPtr<Cairo::Region> region;
+      if (input.has_value()) {
+        region = Cairo::Region::create(input.value());
+      }
+      gdk_window->input_shape_combine_region(region, 0, 0);
+    }
+  }
+};
+
 #ifdef HAVE_GTK_LAYER_SHELL
-struct GLSSurfaceImpl : public BarSurface, public sigc::trackable {
-  GLSSurfaceImpl(Gtk::Window& window, struct waybar_output& output) : window_{window} {
-    output_name_ = output.name;
+struct GLSSurfaceImpl : public SurfaceCommon {
+  GLSSurfaceImpl(Gtk::Window& window, struct waybar_output& output)
+      : SurfaceCommon{window, output} {
     // this has to be executed before GtkWindow.realize
     gtk_layer_init_for_window(window_.gobj());
     gtk_layer_set_keyboard_interactivity(window.gobj(), FALSE);
@@ -144,18 +231,6 @@ struct GLSSurfaceImpl : public BarSurface, public sigc::trackable {
       layer = GTK_LAYER_SHELL_LAYER_OVERLAY;
     }
     gtk_layer_set_layer(window_.gobj(), layer);
-  }
-
-  void setPassThrough(bool enable) override {
-    passthrough_ = enable;
-    auto gdk_window = window_.get_window();
-    if (gdk_window) {
-      Cairo::RefPtr<Cairo::Region> region;
-      if (enable) {
-        region = Cairo::Region::create();
-      }
-      gdk_window->input_shape_combine_region(region, 0, 0);
-    }
   }
 
   void setPosition(const std::string_view& position) override {
@@ -194,14 +269,10 @@ struct GLSSurfaceImpl : public BarSurface, public sigc::trackable {
   };
 
  private:
-  Gtk::Window& window_;
-  std::string output_name_;
-  uint32_t width_;
-  uint32_t height_;
-  bool passthrough_ = false;
-  bool vertical_ = false;
-
-  void onMap(GdkEventAny* ev) { setPassThrough(passthrough_); }
+  void onMap(GdkEventAny* ev) {
+    SurfaceCommon::onMap(ev);
+    setPassThrough(passthrough_);
+  }
 
   void onConfigure(GdkEventConfigure* ev) {
     /*
@@ -224,14 +295,16 @@ struct GLSSurfaceImpl : public BarSurface, public sigc::trackable {
     width_ = ev->width;
     height_ = ev->height;
     spdlog::info(BAR_SIZE_MSG, width_, height_, output_name_);
+    /* Requires width/height to be known */
+    setHotspot(hotspot_);
   }
 };
 #endif
 
-struct RawSurfaceImpl : public BarSurface, public sigc::trackable {
-  RawSurfaceImpl(Gtk::Window& window, struct waybar_output& output) : window_{window} {
+struct RawSurfaceImpl : public SurfaceCommon {
+  RawSurfaceImpl(Gtk::Window& window, struct waybar_output& output)
+      : SurfaceCommon{window, output} {
     output_ = gdk_wayland_monitor_get_wl_output(output.monitor->gobj());
-    output_name_ = output.name;
 
     window.signal_realize().connect_notify(sigc::mem_fun(*this, &RawSurfaceImpl::onRealize));
     window.signal_map_event().connect_notify(sigc::mem_fun(*this, &RawSurfaceImpl::onMap));
@@ -290,28 +363,17 @@ struct RawSurfaceImpl : public BarSurface, public sigc::trackable {
     }
   }
 
-  void setPassThrough(bool enable) override {
-    passthrough_ = enable;
-    /* GTK overwrites any region changes applied directly to the wl_surface,
-     * thus the same GTK region API as in the GLS impl has to be used. */
-    auto gdk_window = window_.get_window();
-    if (gdk_window) {
-      Cairo::RefPtr<Cairo::Region> region;
-      if (enable) {
-        region = Cairo::Region::create();
-      }
-      gdk_window->input_shape_combine_region(region, 0, 0);
-    }
-  }
-
   void setPosition(const std::string_view& position) override {
     anchor_ = HORIZONTAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
+    vertical_ = false;
     if (position == "bottom") {
       anchor_ = HORIZONTAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
     } else if (position == "left") {
       anchor_ = VERTICAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT;
+      vertical_ = true;
     } else if (position == "right") {
       anchor_ = VERTICAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+      vertical_ = true;
     }
 
     // updating already mapped window
@@ -339,20 +401,13 @@ struct RawSurfaceImpl : public BarSurface, public sigc::trackable {
   constexpr static uint8_t HORIZONTAL_ANCHOR =
       ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 
-  template <auto fn>
-  using deleter_fn = std::integral_constant<decltype(fn), fn>;
   using layer_surface_ptr =
       std::unique_ptr<zwlr_layer_surface_v1, deleter_fn<zwlr_layer_surface_v1_destroy>>;
 
-  Gtk::Window& window_;
-  std::string output_name_;
   uint32_t configured_width_ = 0;
   uint32_t configured_height_ = 0;
-  uint32_t width_ = 0;
-  uint32_t height_ = 0;
   uint8_t anchor_ = HORIZONTAL_ANCHOR | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
   bool exclusive_zone_ = true;
-  bool passthrough_ = false;
   struct bar_margins margins_;
 
   zwlr_layer_shell_v1_layer layer_ = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
@@ -382,6 +437,8 @@ struct RawSurfaceImpl : public BarSurface, public sigc::trackable {
     zwlr_layer_surface_v1_set_anchor(layer_surface_.get(), anchor_);
     zwlr_layer_surface_v1_set_margin(layer_surface_.get(), margins_.top, margins_.right,
                                      margins_.bottom, margins_.left);
+
+    SurfaceCommon::onMap(ev);
 
     setSurfaceSize(width_, height_);
     setExclusiveZone(exclusive_zone_);
@@ -427,6 +484,8 @@ struct RawSurfaceImpl : public BarSurface, public sigc::trackable {
       setSurfaceSize(tmp_width, tmp_height);
       commit();
     }
+    /* Requires width/height to be known */
+    setHotspot(hotspot_);
   }
 
   void setSurfaceSize(uint32_t width, uint32_t height) {
@@ -653,6 +712,7 @@ void waybar::Bar::setMode(const struct bar_mode& mode) {
   surface_impl_->setLayer(mode.layer);
   surface_impl_->setExclusiveZone(mode.exclusive);
   surface_impl_->setPassThrough(mode.passthrough);
+  surface_impl_->setHotspot(mode.hotspot);
 
   if (mode.visible) {
     window.get_style_context()->remove_class("hidden");

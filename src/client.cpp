@@ -7,6 +7,7 @@
 #include "idle-inhibit-unstable-v1-client-protocol.h"
 #include "util/clara.hpp"
 #include "util/format.hpp"
+#include "viewporter-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 waybar::Client *waybar::Client::inst() {
@@ -17,7 +18,10 @@ waybar::Client *waybar::Client::inst() {
 void waybar::Client::handleGlobal(void *data, struct wl_registry *registry, uint32_t name,
                                   const char *interface, uint32_t version) {
   auto client = static_cast<Client *>(data);
-  if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
+  if (strcmp(interface, wp_viewporter_interface.name) == 0) {
+    client->viewporter = static_cast<struct wp_viewporter *>(
+        wl_registry_bind(registry, name, &wp_viewporter_interface, 1));
+  } else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
     // limit version to a highest supported by the client protocol file
     version = std::min<uint32_t>(version, zwlr_layer_shell_v1_interface.version);
     client->layer_shell = static_cast<struct zwlr_layer_shell_v1 *>(

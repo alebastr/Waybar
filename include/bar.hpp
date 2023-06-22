@@ -8,6 +8,7 @@
 #include <gtkmm/window.h>
 #include <json/json.h>
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -40,10 +41,11 @@ struct bar_margins {
 };
 
 struct bar_mode {
-  bar_layer layer;
-  bool exclusive;
-  bool passthrough;
-  bool visible;
+  bar_layer layer = bar_layer::BOTTOM;
+  int hotspot = 0;
+  bool exclusive{};
+  bool passthrough{};
+  bool visible{};
 };
 
 #ifdef HAVE_SWAY
@@ -58,6 +60,7 @@ class BarSurface {
 
  public:
   virtual void setExclusiveZone(bool enable) = 0;
+  virtual void setHotspot(int hotspot) = 0;
   virtual void setLayer(bar_layer layer) = 0;
   virtual void setMargins(const struct bar_margins &margins) = 0;
   virtual void setPassThrough(bool enable) = 0;
