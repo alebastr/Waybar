@@ -56,6 +56,12 @@ const Bar::bar_mode_map Bar::PRESET_MODES = {  //
       .exclusive = false,
       .passthrough = true,
       .visible = false}},
+    {"hotspot",
+     {//
+      .layer = bar_layer::TOP,
+      .hotspot = 1,
+      .exclusive = false,
+      .passthrough = false}},
     {"overlay",
      {//
       .layer = bar_layer::TOP,
@@ -652,6 +658,10 @@ waybar::Bar::Bar(struct waybar_output* w_output, const Json::Value& w_config)
     setMode(MODE_DEFAULT);
   }
 
+  window.add_events(Gdk::ENTER_NOTIFY_MASK | Gdk::LEAVE_NOTIFY_MASK);
+  window.signal_enter_notify_event().connect_notify(sigc::mem_fun(*this, &Bar::onEnter), false);
+  window.signal_leave_notify_event().connect_notify(sigc::mem_fun(*this, &Bar::onLeave), false);
+
   window.signal_map_event().connect_notify(sigc::mem_fun(*this, &Bar::onMap));
 
 #if HAVE_SWAY
@@ -722,6 +732,30 @@ void waybar::Bar::setMode(const struct bar_mode& mode) {
     window.set_opacity(0);
   }
   surface_impl_->commit();
+}
+
+void waybar::Bar::onEnter(GdkEventCrossing* ev) {
+  spdlog::trace("window::onEnter: {}", ev->detail);
+  switch (ev->detail) {
+    // ignore focus changes within the window
+    case GDK_NOTIFY_INFERIOR:
+      break;
+    default:
+      setMode("hide");
+      break;
+  }
+}
+
+void waybar::Bar::onLeave(GdkEventCrossing* ev) {
+  spdlog::trace("window::onLeave: {}", ev->detail);
+  switch (ev->detail) {
+    // ignore focus changes within the window
+    case GDK_NOTIFY_INFERIOR:
+      break;
+    default:
+      setMode("hotspot");
+      break;
+  }
 }
 
 void waybar::Bar::onMap(GdkEventAny*) {

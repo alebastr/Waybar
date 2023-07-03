@@ -99,6 +99,8 @@ class Bar {
 #endif
 
  private:
+  void onEnter(GdkEventCrossing *);
+  void onLeave(GdkEventCrossing *);
   void onMap(GdkEventAny *);
   auto setupWidgets() -> void;
   void getModules(const Factory &, const std::string &, Gtk::Box *);
