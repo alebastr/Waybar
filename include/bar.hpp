@@ -52,11 +52,15 @@ class BarInstance : public sigc::trackable {
 
   void handleSignal(int signal);
   void setMode(const std::string &mode);
+  void setPosition(const std::string &pos);
   void setVisible(bool value);
   void toggle();
 
   const std::string &mode() { return mode_; }
   sigc::signal<void, const std::string &> signal_mode;
+
+  Gtk::PositionType position() { return position_; }
+  sigc::signal<void, Gtk::PositionType> signal_position;
 
   std::list<Bar> surfaces;
 
@@ -67,6 +71,7 @@ class BarInstance : public sigc::trackable {
  private:
   bool visible_;
   std::string mode_;
+  Gtk::PositionType position_;
 
 #ifdef HAVE_SWAY
   using BarIpcClient = modules::sway::BarIpcClient;
@@ -101,14 +106,15 @@ class Bar : public sigc::trackable {
   void getModules(const Factory &, const std::string &, waybar::Group *);
   void setMode(const BarMode &mode);
   void setPassThrough(bool passthrough);
-  void setPosition(Gtk::PositionType position);
   void onConfigure(GdkEventConfigure *ev);
   void configureGlobalOffset(int width, int height);
   void onOutputGeometryChanged();
 
   void onModeChange(const std::string &mode);
+  void onPositionChange(Gtk::PositionType position);
 
   std::string last_mode_{BarConfig::MODE_DEFAULT};
+  Gtk::PositionType last_position_{Gtk::PositionType::POS_TOP};
 
   uint32_t width_, height_;
   bool passthrough_;

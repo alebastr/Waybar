@@ -27,6 +27,7 @@ const std::string_view DEFAULT_BAR_ID = "bar-0";
 BarInstance::BarInstance(Glib::RefPtr<Gtk::Application> app, const Json::Value& json)
     : app{std::move(app)}, config{json} {
   mode_ = config.mode.value_or(BarConfig::MODE_DEFAULT);
+  position_ = config.position.value_or(Gtk::POS_TOP);
   visible_ = !config.start_hidden;
 
 #if HAVE_SWAY
@@ -91,7 +92,38 @@ void BarInstance::handleSignal(int signal) {
                 [&](auto& surface) { surface.handleSignal(signal); });
 }
 
-void BarInstance::setMode(const std::string& mode) { signal_mode.emit(mode_ = mode); }
+void BarInstance::setMode(const std::string& mode) {
+  if (!config.modes.contains(mode)) {
+    spdlog::warn("Invalid mode {}", mode);
+  } else if (mode != mode_) {
+    signal_mode.emit(mode_ = mode);
+  }
+}
+
+void BarInstance::setPosition(const std::string& pos) {
+  if (config.position) {
+    /* The bar position was explicitly specified in the config */
+    return;
+  }
+
+  Gtk::PositionType new_position = position_;
+  FromStr(pos, new_position);
+  if (new_position == position_) {
+    return;
+  }
+
+  if (ToOrientation(new_position) != ToOrientation(position_)) {
+    /* Orientation change should be properly signaled to all the containers in the current window.
+     * As we don't do that now, let's reject the update.
+     */
+    spdlog::warn("Invalid position update: {} -> {}; refusing to change bar orientation",
+                 ToStr(position_), ToStr(new_position));
+    return;
+  }
+  spdlog::debug("Bar position updated: {} -> {}", ToStr(position_), ToStr(new_position));
+
+  signal_position.emit(position_ = new_position);
+}
 
 void BarInstance::setVisible(bool value) {
   visible_ = value;
@@ -108,7 +140,7 @@ waybar::Bar::Bar(struct waybar_output* w_output, const BarConfig& w_config, BarI
       output(w_output),
       window{Gtk::WindowType::WINDOW_TOPLEVEL},
       position(config.position.value_or(Gtk::POS_TOP)),
-      orientation(ToOrientation(position)),
+      orientation(ToOrientation(inst.position())),
       x_global(0),
       y_global(0),
       left_(orientation, 0),
@@ -159,7 +191,8 @@ waybar::Bar::Bar(struct waybar_output* w_output, const BarConfig& w_config, BarI
 
   // Position needs to be set after calculating the height due to the
   // GTK layer shell anchors logic relying on the dimensions of the bar.
-  setPosition(position);
+  onPositionChange(inst.position());
+  inst.signal_position.connect(sigc::mem_fun(*this, &Bar::onPositionChange));
 
   onModeChange(inst.mode());
   inst.signal_mode.connect(sigc::mem_fun(*this, &Bar::onModeChange));
@@ -242,7 +275,7 @@ void waybar::Bar::setPassThrough(bool passthrough) {
   }
 }
 
-void waybar::Bar::setPosition(Gtk::PositionType position) {
+void waybar::Bar::onPositionChange(Gtk::PositionType position) {
   std::array<gboolean, GTK_LAYER_SHELL_EDGE_ENTRY_NUMBER> anchors;
   anchors.fill(TRUE);
 
@@ -271,6 +304,11 @@ void waybar::Bar::setPosition(Gtk::PositionType position) {
     anchors[GTK_LAYER_SHELL_EDGE_LEFT] = FALSE;
     anchors[GTK_LAYER_SHELL_EDGE_RIGHT] = FALSE;
   }
+
+  auto style = window.get_style_context();
+  style->remove_class(ToStr(last_position_));
+  last_position_ = position;
+  style->add_class(ToStr(last_position_));
 
   for (auto edge : {GTK_LAYER_SHELL_EDGE_LEFT, GTK_LAYER_SHELL_EDGE_RIGHT, GTK_LAYER_SHELL_EDGE_TOP,
                     GTK_LAYER_SHELL_EDGE_BOTTOM}) {

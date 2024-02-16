@@ -62,14 +62,17 @@ BarIpcClient::BarIpcClient(waybar::BarInstance& bar) : bar_{bar} {
 
 struct swaybar_config parseConfig(const Json::Value& payload) {
   swaybar_config conf;
-  if (auto id = payload["id"]; id.isString()) {
+  if (const auto& id = payload["id"]; id.isString()) {
     conf.id = id.asString();
   }
-  if (auto mode = payload["mode"]; mode.isString()) {
+  if (const auto& mode = payload["mode"]; mode.isString()) {
     conf.mode = mode.asString();
   }
-  if (auto hs = payload["hidden_state"]; hs.isString()) {
+  if (const auto& hs = payload["hidden_state"]; hs.isString()) {
     conf.hidden_state = hs.asString();
+  }
+  if (const auto& pos = payload["position"]; pos.isString()) {
+    conf.position = pos.asString();
   }
   return conf;
 }
@@ -204,6 +207,7 @@ void BarIpcClient::update() {
     visible = true;
   }
   bar_.setMode(visible ? bar_config_.mode : BarConfig::MODE_INVISIBLE);
+  bar_.setPosition(bar_config_.position);
 }
 
 }  // namespace waybar::modules::sway
