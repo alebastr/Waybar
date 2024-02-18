@@ -106,10 +106,10 @@ Glib::ustring to_string(Gtk::PositionType pos) {
       return "left";
     case Gtk::POS_RIGHT:
       return "right";
-    case Gtk::POS_TOP:
-      return "top";
     case Gtk::POS_BOTTOM:
       return "bottom";
+    default:
+      return "top";
   }
   throw std::runtime_error("Invalid Gtk::PositionType");
 }
