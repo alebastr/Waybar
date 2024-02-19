@@ -23,8 +23,8 @@ BarIpcClient::BarIpcClient(waybar::Bar& bar) : bar_{bar} {
   subscribe_events.append("bar_state_update");
   subscribe_events.append("barconfig_update");
 
-  bool has_mode = isModuleEnabled("sway/mode");
-  bool has_workspaces = isModuleEnabled("sway/workspaces");
+  bool has_mode = bar_.config.isModuleEnabled("sway/mode");
+  bool has_workspaces = bar_.config.isModuleEnabled("sway/workspaces");
 
   if (has_mode) {
     subscribe_events.append("mode");
@@ -36,7 +36,7 @@ BarIpcClient::BarIpcClient(waybar::Bar& bar) : bar_{bar} {
     subscribe_events.append("binding");
   }
 
-  modifier_reset_ = bar.config.get("modifier-reset", "press").asString();
+  modifier_reset_ = bar.config.modifier_reset;
 
   signal_config_.connect(sigc::mem_fun(*this, &BarIpcClient::onConfigUpdate));
   signal_visible_.connect(sigc::mem_fun(*this, &BarIpcClient::onVisibilityUpdate));
@@ -58,19 +58,6 @@ BarIpcClient::BarIpcClient(waybar::Bar& bar) : bar_{bar} {
       spdlog::error("BarIpcClient::handleEvent {}", e.what());
     }
   });
-}
-
-bool BarIpcClient::isModuleEnabled(std::string name) {
-  for (const auto& section : {"modules-left", "modules-center", "modules-right"}) {
-    if (const auto& modules = bar_.config.get(section, {}); modules.isArray()) {
-      for (const auto& module : modules) {
-        if (module.asString().rfind(name, 0) == 0) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
 }
 
 struct swaybar_config parseConfig(const Json::Value& payload) {
@@ -192,8 +179,9 @@ void BarIpcClient::onVisibilityUpdate(bool visible_by_modifier) {
 
   // Clear on either press or release depending on bar_.bar_config_.action value.
   // For the check on release, make sure that the modifier key was not used for another action.
-  if (((modifier_reset_ == "press" && visible_by_modifier_) ||
-       (modifier_reset_ == "release" && !visible_by_modifier_ && modifier_no_action_))) {
+  if (((modifier_reset_ == ModifierReset::PRESS && visible_by_modifier_) ||
+       (modifier_reset_ == ModifierReset::RELEASE && !visible_by_modifier_ &&
+        modifier_no_action_))) {
     // Clear the flags to hide the bar.
     visible_by_urgency_ = false;
     visible_by_mode_ = false;
@@ -215,7 +203,7 @@ void BarIpcClient::update() {
   } else if (bar_config_.mode != "hide" || bar_config_.hidden_state != "hide") {
     visible = true;
   }
-  bar_.setMode(visible ? bar_config_.mode : Bar::MODE_INVISIBLE);
+  bar_.setMode(visible ? bar_config_.mode : BarConfig::MODE_INVISIBLE);
 }
 
 }  // namespace waybar::modules::sway

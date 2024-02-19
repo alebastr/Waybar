@@ -118,7 +118,7 @@ waybar::AModule* waybar::Factory::makeModule(const std::string& name,
     auto hash_pos = name.find('#');
     auto ref = name.substr(0, hash_pos);
     auto id = hash_pos != std::string::npos ? name.substr(hash_pos + 1) : "";
-    const auto& config = bar_.config[name];
+    const auto& config = bar_.config.getModuleConfig(name);
 
 #if defined(__FreeBSD__) || defined(__linux__)
     if (ref == "battery") {

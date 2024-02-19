@@ -2,6 +2,7 @@
 #include <atomic>
 #include <string>
 
+#include "bar_config.hpp"
 #include "modules/sway/ipc/client.hpp"
 #include "util/SafeSignal.hpp"
 #include "util/json.hpp"
@@ -29,6 +30,8 @@ class BarIpcClient {
   BarIpcClient(waybar::Bar& bar);
 
  private:
+  using ModifierReset = BarConfig::ModifierReset;
+
   void onInitialConfig(const struct Ipc::ipc_response& res);
   void onIpcEvent(const struct Ipc::ipc_response&);
   void onCmd(const struct Ipc::ipc_response&);
@@ -37,14 +40,13 @@ class BarIpcClient {
   void onModeUpdate(bool visible_by_modifier);
   void onUrgencyUpdate(bool visible_by_urgency);
   void update();
-  bool isModuleEnabled(std::string name);
 
   Bar& bar_;
   util::JsonParser parser_;
   Ipc ipc_;
 
   swaybar_config bar_config_;
-  std::string modifier_reset_;
+  ModifierReset modifier_reset_;
   bool visible_by_mode_ = false;
   bool visible_by_modifier_ = false;
   bool visible_by_urgency_ = false;

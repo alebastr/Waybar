@@ -172,6 +172,7 @@ src_files = files(
     'src/ASlider.cpp',
     'src/main.cpp',
     'src/bar.cpp',
+    'src/bar_config.cpp',
     'src/client.cpp',
     'src/config.cpp',
     'src/group.cpp',

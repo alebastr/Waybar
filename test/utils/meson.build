@@ -10,9 +10,11 @@ test_dep = [
 test_src = files(
     '../main.cpp',
     '../config.cpp',
+    '../../src/bar_config.cpp',
     '../../src/config.cpp',
     'JsonParser.cpp',
     'SafeSignal.cpp',
+    'bar_config.cpp',
     'css_reload_helper.cpp',
     '../../src/util/css_reload_helper.cpp',
 )

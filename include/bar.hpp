@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "AModule.hpp"
+#include "bar_config.hpp"
 #include "group.hpp"
 #include "xdg-output-unstable-v1-client-protocol.h"
 
@@ -28,26 +29,6 @@ struct waybar_output {
       nullptr, &zxdg_output_v1_destroy};
 };
 
-enum class bar_layer : uint8_t {
-  BOTTOM,
-  TOP,
-  OVERLAY,
-};
-
-struct bar_margins {
-  int top = 0;
-  int right = 0;
-  int bottom = 0;
-  int left = 0;
-};
-
-struct bar_mode {
-  std::optional<bar_layer> layer;
-  bool exclusive;
-  bool passthrough;
-  bool visible;
-};
-
 #ifdef HAVE_SWAY
 namespace modules::sway {
 class BarIpcClient;
@@ -56,11 +37,6 @@ class BarIpcClient;
 
 class Bar {
  public:
-  using bar_mode_map = std::map<std::string, struct bar_mode>;
-  static const bar_mode_map PRESET_MODES;
-  static const std::string MODE_DEFAULT;
-  static const std::string MODE_INVISIBLE;
-
   Bar(struct waybar_output *w_output, const Json::Value &);
   Bar(const Bar &) = delete;
   ~Bar();
@@ -70,13 +46,14 @@ class Bar {
   void toggle();
   void handleSignal(int);
 
+  const BarConfig config;
+
   struct waybar_output *output;
-  Json::Value config;
   struct wl_surface *surface;
   bool visible = true;
   Gtk::Window window;
-  Gtk::Orientation orientation = Gtk::ORIENTATION_HORIZONTAL;
-  Gtk::PositionType position = Gtk::POS_TOP;
+  Gtk::PositionType position;
+  Gtk::Orientation orientation;
 
   int x_global;
   int y_global;
@@ -89,20 +66,15 @@ class Bar {
   void onMap(GdkEventAny *);
   auto setupWidgets() -> void;
   void getModules(const Factory &, const std::string &, waybar::Group *);
-  void setupAltFormatKeyForModule(const std::string &module_name);
-  void setupAltFormatKeyForModuleList(const char *module_list_name);
-  void setMode(const bar_mode &);
+  void setMode(const BarMode &mode);
   void setPassThrough(bool passthrough);
   void setPosition(Gtk::PositionType position);
   void onConfigure(GdkEventConfigure *ev);
   void configureGlobalOffset(int width, int height);
   void onOutputGeometryChanged();
 
-  /* Copy initial set of modes to allow customization */
-  bar_mode_map configured_modes = PRESET_MODES;
-  std::string last_mode_{MODE_DEFAULT};
+  std::string last_mode_{BarConfig::MODE_DEFAULT};
 
-  struct bar_margins margins_;
   uint32_t width_, height_;
   bool passthrough_;
 
