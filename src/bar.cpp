@@ -539,7 +539,7 @@ auto waybar::Bar::setupWidgets() -> void {
   setupAltFormatKeyForModuleList("modules-right");
   setupAltFormatKeyForModuleList("modules-center");
 
-  Factory factory(*this, config);
+  Factory factory(*this);
   getModules(factory, "modules-left");
   getModules(factory, "modules-center");
   getModules(factory, "modules-right");

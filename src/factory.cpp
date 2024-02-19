@@ -110,7 +110,7 @@
 #include "modules/temperature.hpp"
 #include "modules/user.hpp"
 
-waybar::Factory::Factory(const Bar& bar, const Json::Value& config) : bar_(bar), config_(config) {}
+waybar::Factory::Factory(const Bar& bar) : bar_(bar) {}
 
 waybar::AModule* waybar::Factory::makeModule(const std::string& name,
                                              const std::string& pos) const {
@@ -118,212 +118,214 @@ waybar::AModule* waybar::Factory::makeModule(const std::string& name,
     auto hash_pos = name.find('#');
     auto ref = name.substr(0, hash_pos);
     auto id = hash_pos != std::string::npos ? name.substr(hash_pos + 1) : "";
+    const auto& config = bar_.config[name];
+
 #if defined(__FreeBSD__) || defined(__linux__)
     if (ref == "battery") {
-      return new waybar::modules::Battery(id, bar_, config_[name]);
+      return new waybar::modules::Battery(id, bar_, config);
     }
 #endif
 #ifdef HAVE_GAMEMODE
     if (ref == "gamemode") {
-      return new waybar::modules::Gamemode(id, config_[name]);
+      return new waybar::modules::Gamemode(id, config);
     }
 #endif
 #ifdef HAVE_UPOWER
     if (ref == "upower") {
-      return new waybar::modules::UPower(id, config_[name]);
+      return new waybar::modules::UPower(id, config);
     }
 #endif
 #ifdef HAVE_PIPEWIRE
     if (ref == "privacy") {
-      return new waybar::modules::privacy::Privacy(id, config_[name], pos);
+      return new waybar::modules::privacy::Privacy(id, config, pos);
     }
 #endif
 #ifdef HAVE_MPRIS
     if (ref == "mpris") {
-      return new waybar::modules::mpris::Mpris(id, config_[name]);
+      return new waybar::modules::mpris::Mpris(id, config);
     }
 #endif
 #ifdef HAVE_SWAY
     if (ref == "sway/mode") {
-      return new waybar::modules::sway::Mode(id, config_[name]);
+      return new waybar::modules::sway::Mode(id, config);
     }
     if (ref == "sway/workspaces") {
-      return new waybar::modules::sway::Workspaces(id, bar_, config_[name]);
+      return new waybar::modules::sway::Workspaces(id, bar_, config);
     }
     if (ref == "sway/window") {
-      return new waybar::modules::sway::Window(id, bar_, config_[name]);
+      return new waybar::modules::sway::Window(id, bar_, config);
     }
     if (ref == "sway/language") {
-      return new waybar::modules::sway::Language(id, config_[name]);
+      return new waybar::modules::sway::Language(id, config);
     }
     if (ref == "sway/scratchpad") {
-      return new waybar::modules::sway::Scratchpad(id, config_[name]);
+      return new waybar::modules::sway::Scratchpad(id, config);
     }
 #endif
 #ifdef HAVE_WLR_TASKBAR
     if (ref == "wlr/taskbar") {
-      return new waybar::modules::wlr::Taskbar(id, bar_, config_[name]);
+      return new waybar::modules::wlr::Taskbar(id, bar_, config);
     }
 #endif
 #ifdef HAVE_WLR_WORKSPACES
     if (ref == "wlr/workspaces") {
-      return new waybar::modules::wlr::WorkspaceManager(id, bar_, config_[name]);
+      return new waybar::modules::wlr::WorkspaceManager(id, bar_, config);
     }
 #endif
 #ifdef HAVE_RIVER
     if (ref == "river/mode") {
-      return new waybar::modules::river::Mode(id, bar_, config_[name]);
+      return new waybar::modules::river::Mode(id, bar_, config);
     }
     if (ref == "river/tags") {
-      return new waybar::modules::river::Tags(id, bar_, config_[name]);
+      return new waybar::modules::river::Tags(id, bar_, config);
     }
     if (ref == "river/window") {
-      return new waybar::modules::river::Window(id, bar_, config_[name]);
+      return new waybar::modules::river::Window(id, bar_, config);
     }
     if (ref == "river/layout") {
-      return new waybar::modules::river::Layout(id, bar_, config_[name]);
+      return new waybar::modules::river::Layout(id, bar_, config);
     }
 #endif
 #ifdef HAVE_DWL
     if (ref == "dwl/tags") {
-      return new waybar::modules::dwl::Tags(id, bar_, config_[name]);
+      return new waybar::modules::dwl::Tags(id, bar_, config);
     }
     if (ref == "dwl/window") {
-      return new waybar::modules::dwl::Window(id, bar_, config_[name]);
+      return new waybar::modules::dwl::Window(id, bar_, config);
     }
 #endif
 #ifdef HAVE_HYPRLAND
     if (ref == "hyprland/window") {
-      return new waybar::modules::hyprland::Window(id, bar_, config_[name]);
+      return new waybar::modules::hyprland::Window(id, bar_, config);
     }
     if (ref == "hyprland/language") {
-      return new waybar::modules::hyprland::Language(id, bar_, config_[name]);
+      return new waybar::modules::hyprland::Language(id, bar_, config);
     }
     if (ref == "hyprland/submap") {
-      return new waybar::modules::hyprland::Submap(id, bar_, config_[name]);
+      return new waybar::modules::hyprland::Submap(id, bar_, config);
     }
     if (ref == "hyprland/workspaces") {
-      return new waybar::modules::hyprland::Workspaces(id, bar_, config_[name]);
+      return new waybar::modules::hyprland::Workspaces(id, bar_, config);
     }
 #endif
     if (ref == "idle_inhibitor") {
-      return new waybar::modules::IdleInhibitor(id, bar_, config_[name]);
+      return new waybar::modules::IdleInhibitor(id, bar_, config);
     }
 #if defined(HAVE_MEMORY_LINUX) || defined(HAVE_MEMORY_BSD)
     if (ref == "memory") {
-      return new waybar::modules::Memory(id, config_[name]);
+      return new waybar::modules::Memory(id, config);
     }
 #endif
 #if defined(HAVE_CPU_LINUX) || defined(HAVE_CPU_BSD)
     if (ref == "cpu") {
-      return new waybar::modules::Cpu(id, config_[name]);
+      return new waybar::modules::Cpu(id, config);
     }
 #if defined(HAVE_CPU_LINUX)
     if (ref == "cpu_frequency") {
-      return new waybar::modules::CpuFrequency(id, config_[name]);
+      return new waybar::modules::CpuFrequency(id, config);
     }
 #endif
     if (ref == "cpu_usage") {
-      return new waybar::modules::CpuUsage(id, config_[name]);
+      return new waybar::modules::CpuUsage(id, config);
     }
     if (ref == "load") {
-      return new waybar::modules::Load(id, config_[name]);
+      return new waybar::modules::Load(id, config);
     }
 #endif
     if (ref == "clock") {
-      return new waybar::modules::Clock(id, config_[name]);
+      return new waybar::modules::Clock(id, config);
     }
     if (ref == "user") {
-      return new waybar::modules::User(id, config_[name]);
+      return new waybar::modules::User(id, config);
     }
     if (ref == "disk") {
-      return new waybar::modules::Disk(id, config_[name]);
+      return new waybar::modules::Disk(id, config);
     }
     if (ref == "image") {
-      return new waybar::modules::Image(id, config_[name]);
+      return new waybar::modules::Image(id, config);
     }
 #ifdef HAVE_DBUSMENU
     if (ref == "tray") {
-      return new waybar::modules::SNI::Tray(id, bar_, config_[name]);
+      return new waybar::modules::SNI::Tray(id, bar_, config);
     }
 #endif
 #ifdef HAVE_LIBNL
     if (ref == "network") {
-      return new waybar::modules::Network(id, config_[name]);
+      return new waybar::modules::Network(id, config);
     }
 #endif
 #ifdef HAVE_LIBUDEV
     if (ref == "backlight") {
-      return new waybar::modules::Backlight(id, config_[name]);
+      return new waybar::modules::Backlight(id, config);
     }
     if (ref == "backlight/slider") {
-      return new waybar::modules::BacklightSlider(id, config_[name]);
+      return new waybar::modules::BacklightSlider(id, config);
     }
 #endif
 #ifdef HAVE_LIBEVDEV
     if (ref == "keyboard-state") {
-      return new waybar::modules::KeyboardState(id, bar_, config_[name]);
+      return new waybar::modules::KeyboardState(id, bar_, config);
     }
 #endif
 #ifdef HAVE_LIBPULSE
     if (ref == "pulseaudio") {
-      return new waybar::modules::Pulseaudio(id, config_[name]);
+      return new waybar::modules::Pulseaudio(id, config);
     }
     if (ref == "pulseaudio/slider") {
-      return new waybar::modules::PulseaudioSlider(id, config_[name]);
+      return new waybar::modules::PulseaudioSlider(id, config);
     }
 #endif
 #ifdef HAVE_LIBMPDCLIENT
     if (ref == "mpd") {
-      return new waybar::modules::MPD(id, config_[name]);
+      return new waybar::modules::MPD(id, config);
     }
 #endif
 #ifdef HAVE_LIBSNDIO
     if (ref == "sndio") {
-      return new waybar::modules::Sndio(id, config_[name]);
+      return new waybar::modules::Sndio(id, config);
     }
 #endif
 #if defined(__linux__)
     if (ref == "bluetooth") {
-      return new waybar::modules::Bluetooth(id, config_[name]);
+      return new waybar::modules::Bluetooth(id, config);
     }
     if (ref == "power-profiles-daemon") {
-      return new waybar::modules::PowerProfilesDaemon(id, config_[name]);
+      return new waybar::modules::PowerProfilesDaemon(id, config);
     }
 #endif
 #ifdef HAVE_LOGIND_INHIBITOR
     if (ref == "inhibitor") {
-      return new waybar::modules::Inhibitor(id, bar_, config_[name]);
+      return new waybar::modules::Inhibitor(id, bar_, config);
     }
 #endif
 #ifdef HAVE_LIBJACK
     if (ref == "jack") {
-      return new waybar::modules::JACK(id, config_[name]);
+      return new waybar::modules::JACK(id, config);
     }
 #endif
 #ifdef HAVE_LIBWIREPLUMBER
     if (ref == "wireplumber") {
-      return new waybar::modules::Wireplumber(id, config_[name]);
+      return new waybar::modules::Wireplumber(id, config);
     }
 #endif
 #ifdef HAVE_LIBCAVA
     if (ref == "cava") {
-      return new waybar::modules::Cava(id, config_[name]);
+      return new waybar::modules::Cava(id, config);
     }
 #endif
 #ifdef HAVE_SYSTEMD_MONITOR
     if (ref == "systemd-failed-units") {
-      return new waybar::modules::SystemdFailedUnits(id, config_[name]);
+      return new waybar::modules::SystemdFailedUnits(id, config);
     }
 #endif
     if (ref == "temperature") {
-      return new waybar::modules::Temperature(id, config_[name]);
+      return new waybar::modules::Temperature(id, config);
     }
     if (ref.compare(0, 7, "custom/") == 0 && ref.size() > 7) {
-      return new waybar::modules::Custom(ref.substr(7), id, config_[name], bar_.output->name);
+      return new waybar::modules::Custom(ref.substr(7), id, config, bar_.output->name);
     }
     if (ref.compare(0, 5, "cffi/") == 0 && ref.size() > 5) {
-      return new waybar::modules::CFFI(ref.substr(5), id, config_[name]);
+      return new waybar::modules::CFFI(ref.substr(5), id, config);
     }
   } catch (const std::exception& e) {
     auto err = fmt::format("Disabling module \"{}\", {}", name, e.what());
