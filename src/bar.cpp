@@ -91,18 +91,11 @@ void BarInstance::handleSignal(int signal) {
                 [&](auto& surface) { surface.handleSignal(signal); });
 }
 
-void BarInstance::setMode(const std::string& mode) {
-  mode_ = mode;
-  std::for_each(surfaces.begin(), surfaces.end(), [&](auto& surface) { surface.setMode(mode); });
-}
+void BarInstance::setMode(const std::string& mode) { signal_mode.emit(mode_ = mode); }
 
 void BarInstance::setVisible(bool value) {
   visible_ = value;
   setMode(visible_ ? config.mode.value_or(BarConfig::MODE_DEFAULT) : BarConfig::MODE_INVISIBLE);
-  /*
-    std::for_each(surfaces.begin(), surfaces.end(),
-                  [&](auto& surface) { surface.setVisible(value); });
-  */
 }
 
 void BarInstance::toggle() { setVisible(!visible_); }
@@ -168,7 +161,9 @@ waybar::Bar::Bar(struct waybar_output* w_output, const BarConfig& w_config, BarI
   // GTK layer shell anchors logic relying on the dimensions of the bar.
   setPosition(position);
 
-  setMode(inst.mode());
+  onModeChange(inst.mode());
+  inst.signal_mode.connect(sigc::mem_fun(*this, &Bar::onModeChange));
+
   window.signal_map_event().connect_notify(sigc::mem_fun(*this, &Bar::onMap));
 
   setupWidgets();
@@ -188,7 +183,7 @@ waybar::Bar::Bar(struct waybar_output* w_output, const BarConfig& w_config, BarI
 /* Need to define it here because of forward declared members */
 waybar::Bar::~Bar() = default;
 
-void waybar::Bar::setMode(const std::string& mode) {
+void waybar::Bar::onModeChange(const std::string& mode) {
   using namespace std::literals::string_literals;
 
   auto style = window.get_style_context();

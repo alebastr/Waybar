@@ -37,7 +37,7 @@ class BarIpcClient;
 }
 #endif  // HAVE_SWAY
 
-class BarInstance {
+class BarInstance : public sigc::trackable {
  public:
   BarInstance(Glib::RefPtr<Gtk::Application> app, const Json::Value &json);
   ~BarInstance();
@@ -56,6 +56,7 @@ class BarInstance {
   void toggle();
 
   const std::string &mode() { return mode_; }
+  sigc::signal<void, const std::string &> signal_mode;
 
   std::list<Bar> surfaces;
 
@@ -73,13 +74,12 @@ class BarInstance {
 #endif
 };
 
-class Bar {
+class Bar : public sigc::trackable {
  public:
   Bar(struct waybar_output *w_output, const BarConfig &w_config, BarInstance &w_inst);
   Bar(const Bar &) = delete;
   ~Bar();
 
-  void setMode(const std::string &mode);
   void handleSignal(int);
 
   const BarConfig &config;
@@ -105,6 +105,8 @@ class Bar {
   void onConfigure(GdkEventConfigure *ev);
   void configureGlobalOffset(int width, int height);
   void onOutputGeometryChanged();
+
+  void onModeChange(const std::string &mode);
 
   std::string last_mode_{BarConfig::MODE_DEFAULT};
 
