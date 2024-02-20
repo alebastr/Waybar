@@ -78,11 +78,8 @@ void waybar::Client::handleOutputDone(void *data, struct zxdg_output_v1 * /*xdg_
       output.xdg_output.reset();
       spdlog::debug("Output detection done: {} ({})", output.name, output.identifier);
 
-      auto configs = client->getOutputConfigs(output);
-      if (!configs.empty()) {
-        for (const auto &config : configs) {
-          client->bars.emplace_back(std::make_unique<Bar>(&output, config));
-        }
+      for (auto &bar : client->bars) {
+        bar.onOutputAdded(&output);
       }
     }
   } catch (const std::exception &e) {
@@ -135,17 +132,16 @@ void waybar::Client::handleMonitorRemoved(Glib::RefPtr<Gdk::Monitor> monitor) {
 }
 
 void waybar::Client::handleDeferredMonitorRemoval(Glib::RefPtr<Gdk::Monitor> monitor) {
-  for (auto it = bars.begin(); it != bars.end();) {
-    if ((*it)->output->monitor == monitor) {
-      auto output_name = (*it)->output->name;
-      (*it)->window.hide();
-      gtk_app->remove_window((*it)->window);
-      it = bars.erase(it);
-      spdlog::info("Bar removed from output: {}", output_name);
-    } else {
-      ++it;
-    }
+  auto output = std::find_if(outputs_.begin(), outputs_.end(),
+                             [&monitor](const auto &output) { return output.monitor == monitor; });
+  if (output == outputs_.end()) {
+    return;
   }
+
+  for (auto &bar : bars) {
+    bar.onOutputRemoved(&*output);
+  }
+
   outputs_.remove_if([&monitor](const auto &output) { return output.monitor == monitor; });
 }
 
@@ -272,16 +268,18 @@ int waybar::Client::main(int argc, char *argv[]) {
     setupCss(css_file);
   });
 
-  auto m_config = config.getConfig();
-  if (m_config.isObject() && m_config["reload_style_on_change"].asBool()) {
-    m_cssReloadHelper->monitorChanges();
-  } else if (m_config.isArray()) {
-    for (const auto &conf : m_config) {
-      if (conf["reload_style_on_change"].asBool()) {
-        m_cssReloadHelper->monitorChanges();
-        break;
-      }
+  auto confs = config.getConfig();
+  if (confs.isArray()) {
+    for (const auto &conf : confs) {
+      bars.emplace_back(gtk_app, conf);
     }
+  } else if (confs.isObject()) {
+    bars.emplace_back(gtk_app, confs);
+  }
+
+  if (std::any_of(bars.begin(), bars.end(),
+                  [](const auto &bar) { return bar.config.reload_styles; })) {
+    m_cssReloadHelper->monitorChanges();
   }
 
   bindInterfaces();

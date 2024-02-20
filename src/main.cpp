@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     std::signal(SIGUSR1, [](int /*signal*/) {
       for (auto& bar : waybar::Client::inst()->bars) {
-        bar->toggle();
+        bar.toggle();
       }
     });
 
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
     for (int sig = SIGRTMIN + 1; sig <= SIGRTMAX; ++sig) {
       std::signal(sig, [](int sig) {
         for (auto& bar : waybar::Client::inst()->bars) {
-          bar->handleSignal(sig);
+          bar.handleSignal(sig);
         }
       });
     }

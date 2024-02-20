@@ -19,7 +19,9 @@
 
 namespace waybar {
 
+class Bar;
 class Factory;
+
 struct waybar_output {
   Glib::RefPtr<Gdk::Monitor> monitor;
   std::string name;
@@ -35,18 +37,53 @@ class BarIpcClient;
 }
 #endif  // HAVE_SWAY
 
+class BarInstance {
+ public:
+  BarInstance(Glib::RefPtr<Gtk::Application> app, const Json::Value &json);
+  ~BarInstance();
+
+  Glib::RefPtr<Gtk::Application> app;
+  const BarConfig config;
+
+  bool isOutputEnabled(struct waybar_output *output) const;
+
+  void onOutputAdded(struct waybar_output *output);
+  void onOutputRemoved(struct waybar_output *output);
+
+  void handleSignal(int signal);
+  void setMode(const std::string &mode);
+  void setVisible(bool value);
+  void toggle();
+
+  const std::string &mode() { return mode_; }
+
+  std::list<Bar> surfaces;
+
+#ifdef HAVE_SWAY
+  std::string bar_id;
+#endif
+
+ private:
+  bool visible_;
+  std::string mode_;
+
+#ifdef HAVE_SWAY
+  using BarIpcClient = modules::sway::BarIpcClient;
+  std::unique_ptr<BarIpcClient> ipc_client_;
+#endif
+};
+
 class Bar {
  public:
-  Bar(struct waybar_output *w_output, const Json::Value &);
+  Bar(struct waybar_output *w_output, const BarConfig &w_config, BarInstance &w_inst);
   Bar(const Bar &) = delete;
   ~Bar();
 
   void setMode(const std::string &mode);
-  void setVisible(bool value);
-  void toggle();
   void handleSignal(int);
 
-  const BarConfig config;
+  const BarConfig &config;
+  BarInstance &inst;
 
   struct waybar_output *output;
   struct wl_surface *surface;
@@ -57,10 +94,6 @@ class Bar {
 
   int x_global;
   int y_global;
-
-#ifdef HAVE_SWAY
-  std::string bar_id;
-#endif
 
  private:
   void onMap(GdkEventAny *);
@@ -85,10 +118,6 @@ class Bar {
   std::vector<std::shared_ptr<waybar::AModule>> modules_left_;
   std::vector<std::shared_ptr<waybar::AModule>> modules_center_;
   std::vector<std::shared_ptr<waybar::AModule>> modules_right_;
-#ifdef HAVE_SWAY
-  using BarIpcClient = modules::sway::BarIpcClient;
-  std::unique_ptr<BarIpcClient> _ipc_client;
-#endif
   std::vector<std::shared_ptr<waybar::AModule>> modules_all_;
 };
 

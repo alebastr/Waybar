@@ -9,7 +9,7 @@
 
 namespace waybar {
 
-class Bar;
+class BarInstance;
 
 namespace modules::sway {
 
@@ -27,7 +27,7 @@ struct swaybar_config {
  */
 class BarIpcClient {
  public:
-  BarIpcClient(waybar::Bar& bar);
+  BarIpcClient(waybar::BarInstance& bar);
 
  private:
   using ModifierReset = BarConfig::ModifierReset;
@@ -41,7 +41,7 @@ class BarIpcClient {
   void onUrgencyUpdate(bool visible_by_urgency);
   void update();
 
-  Bar& bar_;
+  BarInstance& bar_;
   util::JsonParser parser_;
   Ipc ipc_;
 

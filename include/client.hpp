@@ -27,9 +27,9 @@ class Client {
   struct wl_registry *registry = nullptr;
   struct zxdg_output_manager_v1 *xdg_output_manager = nullptr;
   struct zwp_idle_inhibit_manager_v1 *idle_inhibit_manager = nullptr;
-  std::vector<std::unique_ptr<Bar>> bars;
   Config config;
   std::string bar_id;
+  std::list<BarInstance> bars;
 
  private:
   Client() = default;

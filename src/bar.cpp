@@ -23,10 +23,95 @@ static constexpr const char* MIN_WIDTH_MSG =
 static constexpr const char* BAR_SIZE_MSG = "Bar configured (width: {}, height: {}) for output: {}";
 
 const std::string_view DEFAULT_BAR_ID = "bar-0";
+
+BarInstance::BarInstance(Glib::RefPtr<Gtk::Application> app, const Json::Value& json)
+    : app{std::move(app)}, config{json} {
+  mode_ = config.mode.value_or(BarConfig::MODE_DEFAULT);
+  visible_ = !config.start_hidden;
+
+#if HAVE_SWAY
+  if (config.ipc) {
+    bar_id = config.bar_id.value_or(Client::inst()->bar_id);
+    if (bar_id.empty()) {
+      bar_id = DEFAULT_BAR_ID;
+    }
+
+    try {
+      ipc_client_ = std::make_unique<BarIpcClient>(*this);
+    } catch (const std::exception& exc) {
+      spdlog::warn("Failed to open bar ipc connection: {}", exc.what());
+    }
+  }
+#endif
+}
+
+/* Need to define it here because of forward declared members */
+BarInstance::~BarInstance() = default;
+
+bool BarInstance::isOutputEnabled(struct waybar_output* output) const {
+  if (config.outputs.empty()) {
+    return true;
+  }
+
+  for (const auto& pattern : config.outputs) {
+    if (pattern.starts_with('!') &&
+        (pattern.substr(1) == output->name || pattern.substr(1) == output->identifier)) {
+      return false;
+    }
+
+    if (pattern.starts_with('*') || pattern == output->name || pattern == output->identifier)
+      return true;
+  }
+
+  return false;
+}
+
+void BarInstance::onOutputAdded(struct waybar_output* out) {
+  if (isOutputEnabled(out) && !std::any_of(surfaces.begin(), surfaces.end(),
+                                           [out](const auto& bar) { return bar.output == out; })) {
+    surfaces.emplace_back(out, config, *this);
+  }
+}
+
+void BarInstance::onOutputRemoved(struct waybar_output* out) {
+  for (auto it = surfaces.begin(); it != surfaces.end();) {
+    if (it->output == out) {
+      it->window.hide();
+      app->remove_window(it->window);
+      it = surfaces.erase(it);
+      spdlog::info("Bar removed from output: {}", out->name);
+    } else {
+      ++it;
+    }
+  }
+}
+
+void BarInstance::handleSignal(int signal) {
+  std::for_each(surfaces.begin(), surfaces.end(),
+                [&](auto& surface) { surface.handleSignal(signal); });
+}
+
+void BarInstance::setMode(const std::string& mode) {
+  mode_ = mode;
+  std::for_each(surfaces.begin(), surfaces.end(), [&](auto& surface) { surface.setMode(mode); });
+}
+
+void BarInstance::setVisible(bool value) {
+  visible_ = value;
+  setMode(visible_ ? config.mode.value_or(BarConfig::MODE_DEFAULT) : BarConfig::MODE_INVISIBLE);
+  /*
+    std::for_each(surfaces.begin(), surfaces.end(),
+                  [&](auto& surface) { surface.setVisible(value); });
+  */
+}
+
+void BarInstance::toggle() { setVisible(!visible_); }
+
 };  // namespace waybar
 
-waybar::Bar::Bar(struct waybar_output* w_output, const Json::Value& w_config)
+waybar::Bar::Bar(struct waybar_output* w_output, const BarConfig& w_config, BarInstance& w_inst)
     : config(w_config),
+      inst(w_inst),
       output(w_output),
       window{Gtk::WindowType::WINDOW_TOPLEVEL},
       position(config.position.value_or(Gtk::POS_TOP)),
@@ -83,27 +168,8 @@ waybar::Bar::Bar(struct waybar_output* w_output, const Json::Value& w_config)
   // GTK layer shell anchors logic relying on the dimensions of the bar.
   setPosition(position);
 
-  setMode(config.mode.value_or(BarConfig::MODE_DEFAULT));
-
-  if (config.start_hidden) {
-    setVisible(false);
-  }
-
+  setMode(inst.mode());
   window.signal_map_event().connect_notify(sigc::mem_fun(*this, &Bar::onMap));
-
-#if HAVE_SWAY
-  if (config.ipc) {
-    bar_id = config.bar_id.value_or(Client::inst()->bar_id);
-    if (bar_id.empty()) {
-      bar_id = DEFAULT_BAR_ID;
-    }
-    try {
-      _ipc_client = std::make_unique<BarIpcClient>(*this);
-    } catch (const std::exception& exc) {
-      spdlog::warn("Failed to open bar ipc connection: {}", exc.what());
-    }
-  }
-#endif
 
   setupWidgets();
   window.show_all();
@@ -227,13 +293,6 @@ void waybar::Bar::onMap(GdkEventAny* /*unused*/) {
 
   setPassThrough(passthrough_);
 }
-
-void waybar::Bar::setVisible(bool value) {
-  visible = value;
-  setMode(visible ? config.mode.value_or(BarConfig::MODE_DEFAULT) : BarConfig::MODE_INVISIBLE);
-}
-
-void waybar::Bar::toggle() { setVisible(!visible); }
 
 void waybar::Bar::handleSignal(int signal) {
   for (auto& module : modules_all_) {

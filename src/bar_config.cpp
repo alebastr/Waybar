@@ -205,6 +205,7 @@ void FromJson(const Json::Value& j, BarConfig& config) {
 
   get_value(config.fixed_center, "fixed-center", Bool);
   get_value(config.start_hidden, "start_hidden", Bool);
+  get_value(config.reload_styles, "reload_style_on_change", Bool);
 
 #ifdef HAVE_SWAY
   get_value(config.ipc, "ipc", Bool);

@@ -79,6 +79,7 @@ class BarConfig {
 
   bool fixed_center = true;
   bool start_hidden = false;
+  bool reload_styles = false;
 
 #ifdef HAVE_SWAY
   bool ipc = false;

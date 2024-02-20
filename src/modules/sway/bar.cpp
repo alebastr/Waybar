@@ -10,7 +10,7 @@
 
 namespace waybar::modules::sway {
 
-BarIpcClient::BarIpcClient(waybar::Bar& bar) : bar_{bar} {
+BarIpcClient::BarIpcClient(waybar::BarInstance& bar) : bar_{bar} {
   {
     sigc::connection handle =
         ipc_.signal_cmd.connect(sigc::mem_fun(*this, &BarIpcClient::onInitialConfig));
