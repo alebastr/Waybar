@@ -27,6 +27,7 @@ const std::string_view DEFAULT_BAR_ID = "bar-0";
 BarInstance::BarInstance(Glib::RefPtr<Gtk::Application> app, const Json::Value& json)
     : app{std::move(app)}, config{json} {
   mode_ = config.mode.value_or(BarConfig::MODE_DEFAULT);
+  outputs_ = config.outputs;
   position_ = config.position.value_or(Gtk::POS_TOP);
   visible_ = !config.start_hidden;
 
@@ -50,11 +51,11 @@ BarInstance::BarInstance(Glib::RefPtr<Gtk::Application> app, const Json::Value& 
 BarInstance::~BarInstance() = default;
 
 bool BarInstance::isOutputEnabled(struct waybar_output* output) const {
-  if (config.outputs.empty()) {
+  if (outputs_.empty()) {
     return true;
   }
 
-  for (const auto& pattern : config.outputs) {
+  for (const auto& pattern : outputs_) {
     if (pattern.starts_with('!') &&
         (pattern.substr(1) == output->name || pattern.substr(1) == output->identifier)) {
       return false;
@@ -97,6 +98,29 @@ void BarInstance::setMode(const std::string& mode) {
     spdlog::warn("Invalid mode {}", mode);
   } else if (mode != mode_) {
     signal_mode.emit(mode_ = mode);
+  }
+}
+
+void BarInstance::setOutputs(const std::vector<std::string>& outputs) {
+  if (!config.outputs.empty()) {
+    /* The list of outputs was explicitly specified in the config */
+    return;
+  }
+
+  outputs_ = outputs;
+
+  /* retest all known outputs */
+  for (auto& w_output : Client::inst()->outputs) {
+    if (w_output.xdg_output) {
+      /* incomplete configuration */
+      continue;
+    }
+
+    if (isOutputEnabled(&w_output)) {
+      onOutputAdded(&w_output);
+    } else {
+      onOutputRemoved(&w_output);
+    }
   }
 }
 

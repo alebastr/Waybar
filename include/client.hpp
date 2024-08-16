@@ -30,6 +30,7 @@ class Client {
   Config config;
   std::string bar_id;
   std::list<BarInstance> bars;
+  std::list<struct waybar_output> outputs;
 
  private:
   Client() = default;
@@ -53,7 +54,6 @@ class Client {
   Glib::RefPtr<Gtk::StyleContext> style_context_;
   Glib::RefPtr<Gtk::CssProvider> css_provider_;
   std::unique_ptr<Portal> portal;
-  std::list<struct waybar_output> outputs_;
   std::unique_ptr<CssReloadHelper> m_cssReloadHelper;
   std::string m_cssFile;
 };

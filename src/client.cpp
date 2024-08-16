@@ -49,9 +49,9 @@ void waybar::Client::handleOutput(struct waybar_output &output) {
 }
 
 struct waybar::waybar_output &waybar::Client::getOutput(void *addr) {
-  auto it = std::find_if(outputs_.begin(), outputs_.end(),
+  auto it = std::find_if(outputs.begin(), outputs.end(),
                          [&addr](const auto &output) { return &output == addr; });
-  if (it == outputs_.end()) {
+  if (it == outputs.end()) {
     throw std::runtime_error("Unable to find valid output");
   }
   return *it;
@@ -114,7 +114,7 @@ void waybar::Client::handleOutputDescription(void *data, struct zxdg_output_v1 *
 }
 
 void waybar::Client::handleMonitorAdded(Glib::RefPtr<Gdk::Monitor> monitor) {
-  auto &output = outputs_.emplace_back();
+  auto &output = outputs.emplace_back();
   output.monitor = std::move(monitor);
   handleOutput(output);
 }
@@ -132,9 +132,9 @@ void waybar::Client::handleMonitorRemoved(Glib::RefPtr<Gdk::Monitor> monitor) {
 }
 
 void waybar::Client::handleDeferredMonitorRemoval(Glib::RefPtr<Gdk::Monitor> monitor) {
-  auto output = std::find_if(outputs_.begin(), outputs_.end(),
+  auto output = std::find_if(outputs.begin(), outputs.end(),
                              [&monitor](const auto &output) { return output.monitor == monitor; });
-  if (output == outputs_.end()) {
+  if (output == outputs.end()) {
     return;
   }
 
@@ -142,7 +142,7 @@ void waybar::Client::handleDeferredMonitorRemoval(Glib::RefPtr<Gdk::Monitor> mon
     bar.onOutputRemoved(&*output);
   }
 
-  outputs_.remove_if([&monitor](const auto &output) { return output.monitor == monitor; });
+  outputs.remove_if([&monitor](const auto &output) { return output.monitor == monitor; });
 }
 
 const std::string waybar::Client::getStyle(const std::string &style,

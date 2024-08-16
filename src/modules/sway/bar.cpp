@@ -74,6 +74,14 @@ struct swaybar_config parseConfig(const Json::Value& payload) {
   if (const auto& pos = payload["position"]; pos.isString()) {
     conf.position = pos.asString();
   }
+  if (const auto& outputs = payload["outputs"]; outputs.isArray()) {
+    conf.outputs.clear();
+    for (const auto& output : outputs) {
+      if (output.isString()) {
+        conf.outputs.push_back(output.asString());
+      }
+    }
+  }
   return conf;
 }
 
@@ -207,6 +215,7 @@ void BarIpcClient::update() {
     visible = true;
   }
   bar_.setMode(visible ? bar_config_.mode : BarConfig::MODE_INVISIBLE);
+  bar_.setOutputs(bar_config_.outputs);
   bar_.setPosition(bar_config_.position);
 }
 

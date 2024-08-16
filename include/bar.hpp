@@ -52,12 +52,15 @@ class BarInstance : public sigc::trackable {
 
   void handleSignal(int signal);
   void setMode(const std::string &mode);
+  void setOutputs(const std::vector<std::string> &outputs);
   void setPosition(const std::string &pos);
   void setVisible(bool value);
   void toggle();
 
   const std::string &mode() { return mode_; }
   sigc::signal<void, const std::string &> signal_mode;
+
+  const std::vector<std::string> &outputs() { return outputs_; }
 
   Gtk::PositionType position() { return position_; }
   sigc::signal<void, Gtk::PositionType> signal_position;
@@ -71,6 +74,7 @@ class BarInstance : public sigc::trackable {
  private:
   bool visible_;
   std::string mode_;
+  std::vector<std::string> outputs_;
   Gtk::PositionType position_;
 
 #ifdef HAVE_SWAY
