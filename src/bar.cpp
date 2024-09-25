@@ -259,6 +259,7 @@ waybar::Bar::Bar(struct waybar_output* w_output, const Json::Value& w_config)
   }
 
   window.signal_map_event().connect_notify(sigc::mem_fun(*this, &Bar::onMap));
+  window.signal_style_updated().connect(sigc::mem_fun(*this, &Bar::onStyleUpdated));
 
 #if HAVE_SWAY
   if (auto ipc = config["ipc"]; ipc.isBool() && ipc.asBool()) {
@@ -410,6 +411,14 @@ void waybar::Bar::onMap(GdkEventAny* /*unused*/) {
   configureGlobalOffset(gdk_window_get_width(gdk_window), gdk_window_get_height(gdk_window));
 
   setPassThrough(passthrough_);
+}
+
+void waybar::Bar::onStyleUpdated() {
+  if (auto gdk_window = window.get_window(); gdk_window) {
+    /* Always assume that the window is transparent */
+    static Cairo::RefPtr<Cairo::Region> region;
+    gdk_window->set_opaque_region(region);
+  }
 }
 
 void waybar::Bar::setVisible(bool value) {
